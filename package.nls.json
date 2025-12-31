@@ -1,0 +1,18 @@
+{
+  "command.preview": "Open Preview",
+  "command.exportPdf": "Export to PDF",
+  "command.changeFormat": "Change Document Format",
+  "command.changePaperSize": "Change Paper Size",
+  "command.generateTemplate": "Generate Template",
+  "command.insertPhoto": "Insert Photo",
+  "command.toggleSyncScroll": "Toggle Sync Scroll",
+  "command.switchLanguage": "Switch CV Language (English/Japanese)",
+  "config.defaultFormat": "Default document format for preview and export",
+  "config.defaultPaperSize": "Default paper size for PDF export",
+  "config.previewUpdateDelay": "Delay in milliseconds before updating preview after editing",
+  "config.enableSyncScroll": "Enable synchronized scrolling between editor and preview",
+  "config.templateLanguage": "Default language for generated templates",
+  "config.includeTemplateComments": "Include explanatory comments in generated templates",
+  "config.photoPath": "Path to photo image for Japanese rirekisho format",
+  "config.defaultLanguage": "Default CV language (auto-detect, English, or Japanese)"
+}

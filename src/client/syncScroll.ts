@@ -1,0 +1,483 @@
+/**
+ * Sync Scroll Module
+ * Provides synchronized scrolling between editor and preview
+ *
+ * Requirements: 13.1, 13.2, 13.3, 13.4
+ */
+
+import * as vscode from 'vscode';
+import { parseMarkdownWithPositions } from 'md2cv/parser/lsp';
+
+/**
+ * Section position information for scroll synchronization
+ */
+export interface SectionPosition {
+  /** Section ID (e.g., 'summary', 'experience') */
+  id: string;
+  /** Section title */
+  title: string;
+  /** Start line in the editor (0-based) */
+  startLine: number;
+  /** End line in the editor (0-based) */
+  endLine: number;
+}
+
+/**
+ * Scroll sync message types for webview communication
+ */
+export interface ScrollSyncMessage {
+  type: 'scrollToSection' | 'scrollToLine' | 'scrollToPosition';
+  /** Section ID to scroll to */
+  sectionId?: string;
+  /** Line number to scroll to (0-based) */
+  line?: number;
+  /** Scroll position as percentage (0-1) */
+  position?: number;
+}
+
+/**
+ * Message from webview for reverse sync (preview → editor)
+ */
+export interface WebviewScrollMessage {
+  type: 'scroll';
+  /** Section ID that is currently visible */
+  sectionId?: string;
+  /** Scroll position as percentage (0-1) */
+  position?: number;
+}
+
+/**
+ * Extract section positions from a markdown document
+ * Uses md2cv's LSP parser to get accurate position information
+ *
+ * @param content The markdown document content
+ * @returns Array of section positions
+ */
+export function extractSectionPositions(content: string): SectionPosition[] {
+  const result = parseMarkdownWithPositions(content);
+
+  if (!result.ok) {
+    return [];
+  }
+
+  const document = result.value;
+  const positions: SectionPosition[] = [];
+
+  // Add frontmatter as a section if present
+  if (document.frontmatter) {
+    positions.push({
+      id: 'frontmatter',
+      title: 'Frontmatter',
+      startLine: document.frontmatter.range.start.line,
+      endLine: document.frontmatter.range.end.line,
+    });
+  }
+
+  // Add each section
+  for (const section of document.sections) {
+    positions.push({
+      id: section.id,
+      title: section.title,
+      startLine: section.range.start.line,
+      endLine: section.range.end.line,
+    });
+  }
+
+  return positions;
+}
+
+/**
+ * Find the section at a given line number
+ *
+ * @param sections Array of section positions
+ * @param line The line number (0-based)
+ * @returns The section at the line, or null if not found
+ */
+export function findSectionAtLine(
+  sections: SectionPosition[],
+  line: number
+): SectionPosition | null {
+  // Find the section that contains this line
+  for (const section of sections) {
+    if (line >= section.startLine && line <= section.endLine) {
+      return section;
+    }
+  }
+
+  // If no exact match, find the closest section before this line
+  let closestSection: SectionPosition | null = null;
+  for (const section of sections) {
+    if (section.startLine <= line) {
+      if (!closestSection || section.startLine > closestSection.startLine) {
+        closestSection = section;
+      }
+    }
+  }
+
+  return closestSection;
+}
+
+/**
+ * Calculate scroll position within a section
+ * Returns a value between 0 and 1 representing the position within the section
+ *
+ * @param section The section
+ * @param line The current line
+ * @returns Position within section (0-1)
+ */
+export function calculatePositionInSection(section: SectionPosition, line: number): number {
+  const sectionLength = section.endLine - section.startLine;
+  if (sectionLength === 0) {
+    return 0;
+  }
+
+  const positionInSection = line - section.startLine;
+  return Math.max(0, Math.min(1, positionInSection / sectionLength));
+}
+
+/**
+ * Calculate the overall scroll percentage based on line position
+ *
+ * @param line Current line number (0-based)
+ * @param totalLines Total number of lines in the document
+ * @returns Scroll percentage (0-1)
+ */
+export function calculateScrollPercentage(line: number, totalLines: number): number {
+  if (totalLines <= 1) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, line / (totalLines - 1)));
+}
+
+/**
+ * Find the line number for a given section ID
+ *
+ * @param sections Array of section positions
+ * @param sectionId The section ID to find
+ * @returns The start line of the section, or null if not found
+ */
+export function findLineForSection(sections: SectionPosition[], sectionId: string): number | null {
+  const section = sections.find((s) => s.id === sectionId);
+  return section ? section.startLine : null;
+}
+
+/**
+ * SyncScrollManager class
+ * Manages synchronized scrolling between editor and preview
+ */
+export class SyncScrollManager implements vscode.Disposable {
+  private _disposables: vscode.Disposable[] = [];
+  private _enabled: boolean = true;
+  private _sectionPositions: SectionPosition[] = [];
+  private _lastScrollLine: number = -1;
+  private _scrollThrottleTimer: ReturnType<typeof setTimeout> | undefined;
+  private _onScrollToPreview: ((message: ScrollSyncMessage) => void) | undefined;
+  private _onScrollToEditor: ((line: number) => void) | undefined;
+
+  constructor() {
+    // Load initial enabled state from configuration
+    this._loadEnabledState();
+  }
+
+  /**
+   * Load the enabled state from configuration
+   */
+  private _loadEnabledState(): void {
+    const config = vscode.workspace.getConfiguration('md2cv');
+    this._enabled = config.get<boolean>('enableSyncScroll', true);
+  }
+
+  /**
+   * Check if sync scroll is enabled
+   */
+  public isEnabled(): boolean {
+    return this._enabled;
+  }
+
+  /**
+   * Enable or disable sync scroll
+   */
+  public setEnabled(enabled: boolean): void {
+    this._enabled = enabled;
+  }
+
+  /**
+   * Update section positions from document content
+   */
+  public updateSectionPositions(content: string): void {
+    this._sectionPositions = extractSectionPositions(content);
+  }
+
+  /**
+   * Get current section positions
+   */
+  public getSectionPositions(): SectionPosition[] {
+    return [...this._sectionPositions];
+  }
+
+  /**
+   * Set callback for scroll to preview events
+   */
+  public onScrollToPreview(callback: (message: ScrollSyncMessage) => void): void {
+    this._onScrollToPreview = callback;
+  }
+
+  /**
+   * Set callback for scroll to editor events
+   */
+  public onScrollToEditor(callback: (line: number) => void): void {
+    this._onScrollToEditor = callback;
+  }
+
+  /**
+   * Handle editor scroll event
+   * Called when the editor visible range changes
+   *
+   * Requirements: 13.1, 13.4
+   */
+  public handleEditorScroll(
+    visibleRanges: readonly vscode.Range[],
+    document: vscode.TextDocument
+  ): void {
+    if (!this._enabled || !this._onScrollToPreview) {
+      return;
+    }
+
+    if (visibleRanges.length === 0) {
+      return;
+    }
+
+    // Get the first visible line
+    const firstVisibleLine = visibleRanges[0].start.line;
+
+    // Throttle scroll events to avoid excessive updates
+    if (this._scrollThrottleTimer) {
+      clearTimeout(this._scrollThrottleTimer);
+    }
+
+    this._scrollThrottleTimer = setTimeout(() => {
+      // Skip if the line hasn't changed significantly
+      if (Math.abs(firstVisibleLine - this._lastScrollLine) < 2) {
+        return;
+      }
+
+      this._lastScrollLine = firstVisibleLine;
+
+      // Find the section at the current line
+      const section = findSectionAtLine(this._sectionPositions, firstVisibleLine);
+
+      if (section) {
+        // Calculate position within section for smooth scrolling
+        const positionInSection = calculatePositionInSection(section, firstVisibleLine);
+
+        this._onScrollToPreview?.({
+          type: 'scrollToSection',
+          sectionId: section.id,
+          position: positionInSection,
+        });
+      } else {
+        // Fall back to percentage-based scrolling
+        const totalLines = document.lineCount;
+        const scrollPercentage = calculateScrollPercentage(firstVisibleLine, totalLines);
+
+        this._onScrollToPreview?.({
+          type: 'scrollToPosition',
+          position: scrollPercentage,
+        });
+      }
+    }, 50); // 50ms throttle
+  }
+
+  /**
+   * Handle scroll message from webview (preview → editor)
+   *
+   * Requirements: 13.2
+   */
+  public handleWebviewScroll(message: WebviewScrollMessage): void {
+    if (!this._enabled || !this._onScrollToEditor) {
+      return;
+    }
+
+    if (message.sectionId) {
+      // Scroll to section
+      const line = findLineForSection(this._sectionPositions, message.sectionId);
+      if (line !== null) {
+        this._onScrollToEditor(line);
+      }
+    } else if (typeof message.position === 'number') {
+      // Scroll to percentage position
+      // This would need the total line count from the document
+      // For now, we'll rely on section-based scrolling
+    }
+  }
+
+  /**
+   * Dispose resources
+   */
+  public dispose(): void {
+    if (this._scrollThrottleTimer) {
+      clearTimeout(this._scrollThrottleTimer);
+    }
+
+    while (this._disposables.length) {
+      const disposable = this._disposables.pop();
+      if (disposable) {
+        disposable.dispose();
+      }
+    }
+  }
+}
+
+/**
+ * Generate JavaScript code for webview scroll handling
+ * This code is injected into the preview webview
+ */
+export function generateWebviewScrollScript(): string {
+  return `
+    <script>
+      (function() {
+        const vscode = acquireVsCodeApi();
+        let syncScrollEnabled = true;
+        let isScrollingFromEditor = false;
+        let scrollTimeout = null;
+
+        // Section elements cache
+        let sectionElements = {};
+
+        // Initialize section elements
+        function initSectionElements() {
+          sectionElements = {};
+          // Find all section headers (h2, h3) and data-section elements
+          document.querySelectorAll('[data-section-id], h2, h3').forEach(el => {
+            const id = el.getAttribute('data-section-id') || el.id || el.textContent?.toLowerCase().replace(/\\s+/g, '-');
+            if (id) {
+              sectionElements[id] = el;
+            }
+          });
+        }
+
+        // Scroll to a specific section
+        function scrollToSection(sectionId, positionInSection) {
+          const element = sectionElements[sectionId];
+          if (element) {
+            isScrollingFromEditor = true;
+            
+            // Calculate the target scroll position
+            const elementRect = element.getBoundingClientRect();
+            const elementTop = elementRect.top + window.scrollY;
+            
+            // If positionInSection is provided, adjust the scroll position
+            let targetY = elementTop;
+            if (typeof positionInSection === 'number' && positionInSection > 0) {
+              // Find the next section to calculate the section height
+              const nextSection = element.nextElementSibling;
+              if (nextSection) {
+                const nextRect = nextSection.getBoundingClientRect();
+                const sectionHeight = nextRect.top - elementRect.top;
+                targetY += sectionHeight * positionInSection;
+              }
+            }
+            
+            window.scrollTo({
+              top: targetY - 20, // 20px offset for better visibility
+              behavior: 'smooth'
+            });
+            
+            // Reset flag after scroll completes
+            setTimeout(() => {
+              isScrollingFromEditor = false;
+            }, 500);
+          }
+        }
+
+        // Scroll to a percentage position
+        function scrollToPosition(position) {
+          isScrollingFromEditor = true;
+          
+          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+          const targetY = maxScroll * position;
+          
+          window.scrollTo({
+            top: targetY,
+            behavior: 'smooth'
+          });
+          
+          setTimeout(() => {
+            isScrollingFromEditor = false;
+          }, 500);
+        }
+
+        // Handle scroll events from the preview
+        function handlePreviewScroll() {
+          if (!syncScrollEnabled || isScrollingFromEditor) {
+            return;
+          }
+
+          // Throttle scroll events
+          if (scrollTimeout) {
+            clearTimeout(scrollTimeout);
+          }
+
+          scrollTimeout = setTimeout(() => {
+            // Find the currently visible section
+            let visibleSection = null;
+            const viewportTop = window.scrollY + 50; // 50px offset
+
+            for (const [id, element] of Object.entries(sectionElements)) {
+              const rect = element.getBoundingClientRect();
+              const elementTop = rect.top + window.scrollY;
+              
+              if (elementTop <= viewportTop) {
+                visibleSection = id;
+              }
+            }
+
+            if (visibleSection) {
+              vscode.postMessage({
+                type: 'scroll',
+                sectionId: visibleSection,
+                position: window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)
+              });
+            }
+          }, 100);
+        }
+
+        // Handle messages from the extension
+        window.addEventListener('message', event => {
+          const message = event.data;
+          
+          switch (message.type) {
+            case 'scrollToSection':
+              scrollToSection(message.sectionId, message.position);
+              break;
+            case 'scrollToPosition':
+              scrollToPosition(message.position);
+              break;
+            case 'scrollToLine':
+              // Line-based scrolling (fallback)
+              scrollToPosition(message.line / (document.body.scrollHeight || 1));
+              break;
+            case 'setSyncScrollEnabled':
+              syncScrollEnabled = message.enabled;
+              break;
+            case 'updateSections':
+              initSectionElements();
+              break;
+          }
+        });
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+          initSectionElements();
+          window.addEventListener('scroll', handlePreviewScroll, { passive: true });
+        });
+
+        // Also initialize if DOM is already loaded
+        if (document.readyState !== 'loading') {
+          initSectionElements();
+          window.addEventListener('scroll', handlePreviewScroll, { passive: true });
+        }
+      })();
+    </script>
+  `;
+}

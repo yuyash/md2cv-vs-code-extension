@@ -1,0 +1,299 @@
+{
+  "name": "md2cv-vscode",
+  "displayName": "md2cv",
+  "description": "Create resumes and CVs from Markdown with real-time preview, PDF export, and IntelliSense",
+  "version": "1.0.0",
+  "publisher": "yuyash",
+  "license": "GPL-3.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Formatters",
+    "Other"
+  ],
+  "keywords": [
+    "resume",
+    "cv",
+    "markdown",
+    "履歴書",
+    "職務経歴書"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "main": "./dist/client/extension.js",
+  "l10n": "./l10n",
+  "contributes": {
+    "commands": [
+      {
+        "command": "md2cv.openPreview",
+        "title": "%command.preview%",
+        "category": "md2cv",
+        "icon": "$(eye)",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "md2cv.exportPdf",
+        "title": "%command.exportPdf%",
+        "category": "md2cv",
+        "icon": "$(file-pdf)",
+        "enablement": "editorLangId == markdown || activeWebviewPanelId == 'md2cv.preview'"
+      },
+      {
+        "command": "md2cv.changeFormat",
+        "title": "%command.changeFormat%",
+        "category": "md2cv",
+        "enablement": "editorLangId == markdown && md2cv.isJapaneseCV"
+      },
+      {
+        "command": "md2cv.changePaperSize",
+        "title": "%command.changePaperSize%",
+        "category": "md2cv",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "md2cv.generateTemplate",
+        "title": "%command.generateTemplate%",
+        "category": "md2cv"
+      },
+      {
+        "command": "md2cv.insertPhoto",
+        "title": "%command.insertPhoto%",
+        "category": "md2cv",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "md2cv.toggleSyncScroll",
+        "title": "%command.toggleSyncScroll%",
+        "category": "md2cv",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "md2cv.switchLanguage",
+        "title": "%command.switchLanguage%",
+        "category": "md2cv",
+        "enablement": "editorLangId == markdown"
+      }
+    ],
+    "configuration": {
+      "title": "md2cv",
+      "properties": {
+        "md2cv.defaultFormat": {
+          "type": "string",
+          "default": "cv",
+          "enum": [
+            "cv",
+            "shokumukeirekisho",
+            "rirekisho",
+            "both"
+          ],
+          "enumDescriptions": [
+            "Western-style CV",
+            "Japanese Shokumukeirekisho (職務経歴書)",
+            "Japanese Rirekisho (履歴書)",
+            "Both Japanese formats"
+          ],
+          "description": "%config.defaultFormat%"
+        },
+        "md2cv.defaultPaperSize": {
+          "type": "string",
+          "default": "a4",
+          "enum": [
+            "a3",
+            "a4",
+            "b4",
+            "b5",
+            "letter"
+          ],
+          "description": "%config.defaultPaperSize%"
+        },
+        "md2cv.previewUpdateDelay": {
+          "type": "number",
+          "default": 300,
+          "minimum": 100,
+          "maximum": 2000,
+          "description": "%config.previewUpdateDelay%"
+        },
+        "md2cv.enableSyncScroll": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.enableSyncScroll%"
+        },
+        "md2cv.templateLanguage": {
+          "type": "string",
+          "default": "en",
+          "enum": [
+            "en",
+            "ja"
+          ],
+          "description": "%config.templateLanguage%"
+        },
+        "md2cv.includeTemplateComments": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.includeTemplateComments%"
+        },
+        "md2cv.photoPath": {
+          "type": "string",
+          "default": "",
+          "description": "%config.photoPath%"
+        },
+        "md2cv.defaultLanguage": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "en",
+            "ja"
+          ],
+          "enumDescriptions": [
+            "Auto-detect from document content",
+            "English CV",
+            "Japanese CV (日本語履歴書)"
+          ],
+          "description": "%config.defaultLanguage%"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "md2cv.openPreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorLangId == markdown"
+      },
+      {
+        "command": "md2cv.exportPdf",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "editorLangId == markdown"
+      },
+      {
+        "command": "md2cv.changeFormat",
+        "key": "ctrl+alt+f",
+        "mac": "cmd+alt+f",
+        "when": "editorLangId == markdown && md2cv.isJapaneseCV"
+      },
+      {
+        "command": "md2cv.changePaperSize",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "editorLangId == markdown"
+      },
+      {
+        "command": "md2cv.generateTemplate",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t"
+      },
+      {
+        "command": "md2cv.toggleSyncScroll",
+        "key": "ctrl+alt+s",
+        "mac": "cmd+alt+s",
+        "when": "editorLangId == markdown"
+      },
+      {
+        "command": "md2cv.switchLanguage",
+        "key": "ctrl+alt+l",
+        "mac": "cmd+alt+l",
+        "when": "editorLangId == markdown"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "md2cv.openPreview",
+          "when": "editorLangId == markdown && resourceExtname == .md",
+          "group": "navigation"
+        },
+        {
+          "command": "md2cv.exportPdf",
+          "when": "activeWebviewPanelId == 'md2cv.preview'",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "md2cv.openPreview",
+          "when": "editorLangId == markdown || md2cv.previewActive"
+        },
+        {
+          "command": "md2cv.exportPdf",
+          "when": "editorLangId == markdown || md2cv.previewActive"
+        },
+        {
+          "command": "md2cv.changeFormat",
+          "when": "(editorLangId == markdown || md2cv.previewActive) && md2cv.isJapaneseCV"
+        },
+        {
+          "command": "md2cv.changePaperSize",
+          "when": "editorLangId == markdown || md2cv.previewActive"
+        },
+        {
+          "command": "md2cv.generateTemplate"
+        },
+        {
+          "command": "md2cv.insertPhoto",
+          "when": "editorLangId == markdown || md2cv.previewActive"
+        },
+        {
+          "command": "md2cv.toggleSyncScroll",
+          "when": "editorLangId == markdown || md2cv.previewActive"
+        },
+        {
+          "command": "md2cv.switchLanguage",
+          "when": "editorLangId == markdown || md2cv.previewActive"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "esbuild ./src/client/extension.ts --bundle --outfile=dist/client/extension.js --external:vscode --external:puppeteer --format=cjs --platform=node --banner:js=\"const import_meta_url = require('url').pathToFileURL(__filename).href;\"  --define:import.meta.url=import_meta_url",
+    "build:server": "esbuild ./src/server/server.ts --bundle --outfile=dist/server/server.js --external:vscode --external:puppeteer --format=cjs --platform=node --banner:js=\"const import_meta_url = require('url').pathToFileURL(__filename).href;\" --define:import.meta.url=import_meta_url",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "clean": "rm -rf dist coverage",
+    "watch": "npm run watch:client & npm run watch:server",
+    "watch:client": "esbuild ./src/client/extension.ts --bundle --outfile=dist/client/extension.js --external:vscode --external:puppeteer --format=cjs --platform=node --watch --banner:js=\"const import_meta_url = require('url').pathToFileURL(__filename).href;\" --define:import.meta.url=import_meta_url",
+    "watch:server": "esbuild ./src/server/server.ts --bundle --outfile=dist/server/server.js --external:vscode --external:puppeteer --format=cjs --platform=node --watch --banner:js=\"const import_meta_url = require('url').pathToFileURL(__filename).href;\" --define:import.meta.url=import_meta_url",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "npm run build && npm run build:e2e && npm run copy:fixtures && node ./dist/test/e2e/runTest.js",
+    "build:e2e": "esbuild ./src/test/e2e/runTest.ts ./src/test/e2e/index.ts ./src/test/e2e/helper.ts ./src/test/e2e/*.e2e.test.ts --bundle --outdir=dist/test/e2e --external:vscode --external:mocha --format=cjs --platform=node",
+    "copy:fixtures": "cp -r ./src/test/e2e/fixtures ./dist/test/e2e/",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.0.3",
+    "@types/vscode": "^1.107.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.2",
+    "eslint": "^9.39.2",
+    "fast-check": "^4.5.2",
+    "glob": "^13.0.0",
+    "mocha": "^11.7.5",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.50.1",
+    "vitest": "^4.0.16",
+    "@vitest/coverage-v8": "^4.0.16"
+  },
+  "dependencies": {
+    "md2cv": "^1.4.0",
+    "puppeteer": "^24.34.0",
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "yaml": "^2.8.2"
+  }
+}

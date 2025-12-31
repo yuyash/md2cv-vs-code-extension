@@ -1,0 +1,18 @@
+{
+  "command.preview": "プレビューを開く",
+  "command.exportPdf": "PDFにエクスポート",
+  "command.changeFormat": "ドキュメント形式を変更",
+  "command.changePaperSize": "用紙サイズを変更",
+  "command.generateTemplate": "テンプレートを生成",
+  "command.insertPhoto": "写真を挿入",
+  "command.toggleSyncScroll": "同期スクロールの切り替え",
+  "command.switchLanguage": "CV言語の切り替え（英語/日本語）",
+  "config.defaultFormat": "プレビューとエクスポートのデフォルトドキュメント形式",
+  "config.defaultPaperSize": "PDF出力のデフォルト用紙サイズ",
+  "config.previewUpdateDelay": "編集後にプレビューを更新するまでの遅延（ミリ秒）",
+  "config.enableSyncScroll": "エディタとプレビュー間の同期スクロールを有効にする",
+  "config.templateLanguage": "生成されるテンプレートのデフォルト言語",
+  "config.includeTemplateComments": "生成されるテンプレートに説明コメントを含める",
+  "config.photoPath": "日本式履歴書用の写真画像のパス",
+  "config.defaultLanguage": "デフォルトのCV言語（自動検出、英語、または日本語）"
+}
