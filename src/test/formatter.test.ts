@@ -77,7 +77,10 @@ items:
       },
     };
 
-    const mockDocument: Pick<ParsedDocumentWithPositions, 'frontmatter' | 'sections' | 'codeBlocks'> = {
+    const mockDocument: Pick<
+      ParsedDocumentWithPositions,
+      'frontmatter' | 'sections' | 'codeBlocks'
+    > = {
       frontmatter: null,
       sections: [],
       codeBlocks: [mockCodeBlock],
