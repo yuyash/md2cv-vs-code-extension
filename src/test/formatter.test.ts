@@ -5,7 +5,7 @@ import {
   getYamlContentRange,
   rangeOverlapsCodeBlock,
 } from '../server/formatter.js';
-import type { LocatedCodeBlock } from '../server/parser.js';
+import type { LocatedCodeBlock, ParsedDocumentWithPositions } from '../server/parser.js';
 
 describe('YAML Formatter', () => {
   describe('formatYaml', () => {
@@ -77,34 +77,34 @@ items:
       },
     };
 
-    const mockDocument = {
+    const mockDocument: Pick<ParsedDocumentWithPositions, 'frontmatter' | 'sections' | 'codeBlocks'> = {
       frontmatter: null,
       sections: [],
       codeBlocks: [mockCodeBlock],
     };
 
     it('should find code block when line is within range', () => {
-      const result = findCodeBlockAtLine(mockDocument as any, 7);
+      const result = findCodeBlockAtLine(mockDocument, 7);
       expect(result).toBe(mockCodeBlock);
     });
 
     it('should find code block at start line', () => {
-      const result = findCodeBlockAtLine(mockDocument as any, 5);
+      const result = findCodeBlockAtLine(mockDocument, 5);
       expect(result).toBe(mockCodeBlock);
     });
 
     it('should find code block at end line', () => {
-      const result = findCodeBlockAtLine(mockDocument as any, 10);
+      const result = findCodeBlockAtLine(mockDocument, 10);
       expect(result).toBe(mockCodeBlock);
     });
 
     it('should return null when line is before code block', () => {
-      const result = findCodeBlockAtLine(mockDocument as any, 3);
+      const result = findCodeBlockAtLine(mockDocument, 3);
       expect(result).toBeNull();
     });
 
     it('should return null when line is after code block', () => {
-      const result = findCodeBlockAtLine(mockDocument as any, 15);
+      const result = findCodeBlockAtLine(mockDocument, 15);
       expect(result).toBeNull();
     });
   });

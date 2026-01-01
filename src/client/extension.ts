@@ -74,12 +74,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Initialize logger first
   const log = getLogger();
   context.subscriptions.push(log);
-  
+
   // Set log level based on debug mode
   if (context.extensionMode === vscode.ExtensionMode.Development) {
     log.setLogLevel(LogLevel.DEBUG);
   }
-  
+
   logger.info('md2cv extension activating...');
 
   // Initialize Configuration Manager first
@@ -168,7 +168,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // Load initial configuration
   loadConfiguration();
-  
+
   logger.info('md2cv extension activated successfully');
 }
 
@@ -261,10 +261,10 @@ function registerCommands(context: vscode.ExtensionContext): void {
     // Export PDF command
     vscode.commands.registerCommand('md2cv.exportPdf', async () => {
       const editor = vscode.window.activeTextEditor;
-      
+
       // Get document from active editor or preview provider
       let document: vscode.TextDocument | undefined;
-      
+
       if (editor && editor.document.languageId === 'markdown') {
         document = editor.document;
       } else if (previewProvider?.isVisible()) {
@@ -316,7 +316,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
 
       // Get document from active editor or preview provider
       let document: vscode.TextDocument | undefined;
-      
+
       if (editor && editor.document.languageId === 'markdown') {
         document = editor.document;
       } else if (previewProvider?.isVisible()) {
@@ -466,7 +466,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
           } else if (previewProvider?.isVisible()) {
             document = previewProvider.getCurrentDocument();
           }
-          
+
           if (document && previewProvider) {
             previewProvider.updatePreview(document);
           }
@@ -482,9 +482,9 @@ function registerCommands(context: vscode.ExtensionContext): void {
     // Set Paper Size command (called from preview webview)
     vscode.commands.registerCommand('md2cv.setPaperSize', async (paperSize: PaperSize) => {
       if (!paperSize) return;
-      
+
       logger.debug('setPaperSize command called', { paperSize });
-      
+
       // Update preview provider
       if (previewProvider) {
         previewProvider.setPaperSize(paperSize);
@@ -561,7 +561,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
 
       // Get document from active editor or preview provider
       let document: vscode.TextDocument | undefined;
-      
+
       if (editor && editor.document.languageId === 'markdown') {
         document = editor.document;
       } else if (previewProvider?.isVisible()) {
@@ -612,7 +612,10 @@ function registerCommands(context: vscode.ExtensionContext): void {
       });
 
       const selected = await vscode.window.showQuickPick(items, {
-        placeHolder: vscode.l10n.t('Select CV language (current: {0})', currentLanguage ?? 'unknown'),
+        placeHolder: vscode.l10n.t(
+          'Select CV language (current: {0})',
+          currentLanguage ?? 'unknown'
+        ),
         title: vscode.l10n.t('CV Language'),
       });
 
@@ -789,7 +792,7 @@ function handleConfigurationChange(event: ConfigChangeEvent): void {
     } else if (previewProvider?.isVisible()) {
       document = previewProvider.getCurrentDocument();
     }
-    
+
     if (document && previewProvider?.isVisible()) {
       previewProvider.updatePreview(document);
     }
@@ -845,10 +848,10 @@ function loadConfiguration(): void {
  */
 export function deactivate(): Thenable<void> | undefined {
   logger.info('md2cv extension deactivating...');
-  
+
   // Dispose of the configuration manager singleton
   disposeConfigurationManager();
-  
+
   // Dispose of the logger singleton
   disposeLogger();
 

@@ -63,7 +63,7 @@ export async function showPhotoSelectionDialog(): Promise<vscode.Uri | undefined
     canSelectMany: false,
     openLabel: vscode.l10n.t('Select Photo'),
     filters: {
-      [vscode.l10n.t('Images')]: SUPPORTED_IMAGE_EXTENSIONS,
+      [vscode.l10n.t('Images')]: [...SUPPORTED_IMAGE_EXTENSIONS],
     },
     title: vscode.l10n.t('Select Photo for Rirekisho'),
   };

@@ -50,8 +50,11 @@ interface HtmlGeneratorOptions {
 
 class HtmlGenerator {
   generate(content: string, options: HtmlGeneratorOptions): string {
-    logger.debug('HtmlGenerator.generate called', { format: options.format, paperSize: options.paperSize });
-    
+    logger.debug('HtmlGenerator.generate called', {
+      format: options.format,
+      paperSize: options.paperSize,
+    });
+
     const parseResult = parseMarkdown(content);
 
     if (!parseResult.ok) {
@@ -130,7 +133,7 @@ class HtmlGenerator {
     // Get paper dimensions for each format
     const cvDimensions = PAGE_SIZES[paperSize];
     const rirekishoDimensions = PAGE_SIZES_LANDSCAPE[paperSize];
-    
+
     // Convert mm to pixels (96 DPI, 1 inch = 25.4mm)
     const mmToPx = 96 / 25.4;
     const cvWidthPx = Math.round(cvDimensions.width * mmToPx);
@@ -243,10 +246,10 @@ function getPaperDimensions(format: OutputFormat, paperSize: PaperSize): PaperDi
 
 /**
  * Build the webview HTML that wraps md2cv output with zoom/pan controls
- * 
+ *
  * Design: md2cv's HTML is displayed in an iframe, and the outer document
  * provides zoom/pan functionality. This keeps md2cv's CSS isolated.
- * 
+ *
  * The iframe size is set based on the document format and paper size:
  * - CV: Portrait orientation (e.g., A4 = 210mm x 297mm)
  * - Rirekisho: Landscape orientation (e.g., A4 = 297mm x 210mm)
@@ -254,19 +257,16 @@ function getPaperDimensions(format: OutputFormat, paperSize: PaperSize): PaperDi
 function buildWebviewHtml(cvHtml: string, options: WebviewHtmlOptions): string {
   const { format, paperSize } = options;
   const dimensions = getPaperDimensions(format, paperSize);
-  
-  logger.debug('Building webview HTML', { 
-    format, 
-    paperSize, 
+
+  logger.debug('Building webview HTML', {
+    format,
+    paperSize,
     dimensions,
-    isLandscape: format === 'rirekisho'
+    isLandscape: format === 'rirekisho',
   });
 
   // Escape HTML for embedding in JavaScript template literal
-  const escapedHtml = cvHtml
-    .replace(/\\/g, '\\\\')
-    .replace(/`/g, '\\`')
-    .replace(/\$/g, '\\$');
+  const escapedHtml = cvHtml.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
 
   // Convert mm to pixels (assuming 96 DPI, 1 inch = 25.4mm)
   // 1mm = 96 / 25.4 ≈ 3.78 pixels
@@ -545,10 +545,10 @@ export class PreviewProvider implements vscode.Disposable {
   }
 
   public show(document: vscode.TextDocument): void {
-    logger.info('Opening preview', { 
+    logger.info('Opening preview', {
       uri: document.uri.toString(),
       format: this.state.format,
-      paperSize: this.state.paperSize
+      paperSize: this.state.paperSize,
     });
 
     if (this.panel) {
@@ -558,21 +558,41 @@ export class PreviewProvider implements vscode.Disposable {
         PreviewProvider.viewType,
         vscode.l10n.t('md2cv Preview'),
         vscode.ViewColumn.Beside,
-        { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [this.extensionUri] }
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true,
+          localResourceRoots: [this.extensionUri],
+        }
       );
 
-      this.panel.onDidDispose(() => {
-        logger.debug('Preview panel disposed');
-        this.panel = undefined;
-        vscode.commands.executeCommand('setContext', 'md2cv.previewActive', false);
-      }, null, this.disposables);
+      this.panel.onDidDispose(
+        () => {
+          logger.debug('Preview panel disposed');
+          this.panel = undefined;
+          vscode.commands.executeCommand('setContext', 'md2cv.previewActive', false);
+        },
+        null,
+        this.disposables
+      );
 
-      this.panel.onDidChangeViewState((e) => {
-        vscode.commands.executeCommand('setContext', 'md2cv.previewActive', e.webviewPanel.active);
-        if (e.webviewPanel.active) this.onPreviewActiveCallback?.();
-      }, null, this.disposables);
+      this.panel.onDidChangeViewState(
+        (e) => {
+          vscode.commands.executeCommand(
+            'setContext',
+            'md2cv.previewActive',
+            e.webviewPanel.active
+          );
+          if (e.webviewPanel.active) this.onPreviewActiveCallback?.();
+        },
+        null,
+        this.disposables
+      );
 
-      this.panel.webview.onDidReceiveMessage((msg) => this.handleMessage(msg), null, this.disposables);
+      this.panel.webview.onDidReceiveMessage(
+        (msg) => this.handleMessage(msg),
+        null,
+        this.disposables
+      );
     }
 
     this.currentDocument = document;
@@ -602,7 +622,7 @@ export class PreviewProvider implements vscode.Disposable {
     logger.debug('Rendering preview', {
       format: this.state.format,
       paperSize: this.state.paperSize,
-      hasPhoto: !!this.state.photoPath
+      hasPhoto: !!this.state.photoPath,
     });
 
     try {
@@ -614,12 +634,15 @@ export class PreviewProvider implements vscode.Disposable {
 
       this.lastValidHtml = cvHtml;
       this.state.documentUri = document.uri.toString();
-      
+
       // For 'both' format with Japanese content, the HTML is already complete with its own layout
       // Don't wrap it in buildWebviewHtml which adds another iframe layer
       // Check if the HTML contains the 'both' format markers (職務経歴書 and 履歴書 sections)
-      const isBothFormatHtml = this.state.format === 'both' && cvHtml.includes('id="cv-frame"') && cvHtml.includes('id="rirekisho-frame"');
-      
+      const isBothFormatHtml =
+        this.state.format === 'both' &&
+        cvHtml.includes('id="cv-frame"') &&
+        cvHtml.includes('id="rirekisho-frame"');
+
       if (isBothFormatHtml) {
         this.panel.webview.html = cvHtml;
       } else {
@@ -628,7 +651,7 @@ export class PreviewProvider implements vscode.Disposable {
           paperSize: this.state.paperSize,
         });
       }
-      
+
       logger.debug('Preview rendered successfully');
     } catch (error) {
       logger.error('Preview render failed', error);
@@ -636,7 +659,10 @@ export class PreviewProvider implements vscode.Disposable {
       vscode.window.showErrorMessage(vscode.l10n.t('Preview update failed: {0}', msg));
 
       if (this.lastValidHtml) {
-        const isBothFormatHtml = this.state.format === 'both' && this.lastValidHtml.includes('id="cv-frame"') && this.lastValidHtml.includes('id="rirekisho-frame"');
+        const isBothFormatHtml =
+          this.state.format === 'both' &&
+          this.lastValidHtml.includes('id="cv-frame"') &&
+          this.lastValidHtml.includes('id="rirekisho-frame"');
         if (isBothFormatHtml) {
           this.panel.webview.html = this.lastValidHtml;
         } else {
@@ -663,7 +689,10 @@ export class PreviewProvider implements vscode.Disposable {
       case 'changePaperSize':
         if (typeof message.paperSize === 'string') {
           const newSize = message.paperSize as PaperSize;
-          logger.info('Paper size changed from preview', { from: this.state.paperSize, to: newSize });
+          logger.info('Paper size changed from preview', {
+            from: this.state.paperSize,
+            to: newSize,
+          });
           this.state.paperSize = newSize;
           // Trigger the VS Code command to update configuration and status bar
           vscode.commands.executeCommand('md2cv.setPaperSize', newSize);
@@ -681,26 +710,40 @@ export class PreviewProvider implements vscode.Disposable {
     logger.info('Format changed', { from: this.state.format, to: format });
     this.state.format = format;
   }
-  
-  public getFormat(): OutputFormat { return this.state.format; }
-  
+
+  public getFormat(): OutputFormat {
+    return this.state.format;
+  }
+
   public setPaperSize(paperSize: PaperSize): void {
     logger.info('Paper size changed', { from: this.state.paperSize, to: paperSize });
     this.state.paperSize = paperSize;
   }
-  
-  public getPaperSize(): PaperSize { return this.state.paperSize; }
-  
+
+  public getPaperSize(): PaperSize {
+    return this.state.paperSize;
+  }
+
   public setPhotoPath(photoPath: string): void {
     logger.debug('Photo path set', { photoPath });
     this.state.photoPath = photoPath;
   }
-  
-  public isVisible(): boolean { return this.panel?.visible ?? false; }
-  public getCurrentDocument(): vscode.TextDocument | undefined { return this.currentDocument; }
-  public onPreviewActive(callback: () => void): void { this.onPreviewActiveCallback = callback; }
-  public getSyncScrollManager(): SyncScrollManager { return this.syncScrollManager; }
-  public isSyncScrollEnabled(): boolean { return this.syncScrollManager.isEnabled(); }
+
+  public isVisible(): boolean {
+    return this.panel?.visible ?? false;
+  }
+  public getCurrentDocument(): vscode.TextDocument | undefined {
+    return this.currentDocument;
+  }
+  public onPreviewActive(callback: () => void): void {
+    this.onPreviewActiveCallback = callback;
+  }
+  public getSyncScrollManager(): SyncScrollManager {
+    return this.syncScrollManager;
+  }
+  public isSyncScrollEnabled(): boolean {
+    return this.syncScrollManager.isEnabled();
+  }
 
   public setSyncScrollEnabled(enabled: boolean): void {
     logger.debug('Sync scroll enabled changed', { enabled });
@@ -708,7 +751,10 @@ export class PreviewProvider implements vscode.Disposable {
     this.panel?.webview.postMessage({ type: 'setSyncScrollEnabled', enabled });
   }
 
-  public handleEditorScroll(visibleRanges: readonly vscode.Range[], document: vscode.TextDocument): void {
+  public handleEditorScroll(
+    visibleRanges: readonly vscode.Range[],
+    document: vscode.TextDocument
+  ): void {
     if (!this.panel || !this.isVisible()) return;
     this.syncScrollManager.handleEditorScroll(visibleRanges, document);
   }
