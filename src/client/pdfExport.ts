@@ -21,6 +21,7 @@ import {
   type OutputFormat,
 } from 'md2cv';
 import { logger } from './logger';
+import { withEnvFromFile } from './envLoader';
 
 /**
  * PDF Export Options
@@ -184,7 +185,7 @@ export async function exportToPdf(
   const content = document.getText();
 
   // Parse markdown
-  const parseResult = parseMarkdown(content);
+  const parseResult = withEnvFromFile(document.uri.fsPath, () => parseMarkdown(content));
   if (!parseResult.ok) {
     const errorMessages = parseResult.error.map((e) => e.message).join(', ');
     logger.error('PDF export failed: parse error', { errors: errorMessages });
