@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.0.0...v1.1.0) (2026-01-01)
+
+
+### Features
+
+* add env var loading with tests and refresh preview/docs ([#4](https://github.com/yuyash/md2cv-vs-code-extension/issues/4)) ([e5a5c5d](https://github.com/yuyash/md2cv-vs-code-extension/commit/e5a5c5d5d3534a8dbcf29646dd63ec03573ff8da))
+
 ## 1.0.0 (2026-01-01)
 
 
