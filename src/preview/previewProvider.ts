@@ -25,6 +25,7 @@ import {
   type WebviewScrollMessage,
 } from '../client/syncScroll';
 import { logger } from '../client/logger';
+import { withEnvFromFile } from '../client/envLoader';
 
 // ============================================================================
 // Types
@@ -626,11 +627,13 @@ export class PreviewProvider implements vscode.Disposable {
     });
 
     try {
-      const cvHtml = this.htmlGenerator.generate(document.getText(), {
-        format: this.state.format,
-        paperSize: this.state.paperSize,
-        photoPath: this.state.photoPath,
-      });
+      const cvHtml = withEnvFromFile(document.uri.fsPath, () =>
+        this.htmlGenerator.generate(document.getText(), {
+          format: this.state.format,
+          paperSize: this.state.paperSize,
+          photoPath: this.state.photoPath,
+        })
+      );
 
       this.lastValidHtml = cvHtml;
       this.state.documentUri = document.uri.toString();
