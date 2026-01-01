@@ -180,7 +180,7 @@ export async function exportToPdf(
   options: PdfExportOptions
 ): Promise<PdfExportResult> {
   logger.info('Starting PDF export', { format: options.format, paperSize: options.paperSize });
-  
+
   const content = document.getText();
 
   // Parse markdown

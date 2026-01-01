@@ -115,7 +115,10 @@ function parseErrorToDiagnostic(error: ParseError): Diagnostic {
  * Checks frontmatter language field first, then auto-detects from content
  * Returns concrete language ('en' or 'ja'), never 'auto'
  */
-function detectDocumentLanguage(content: string, defaultLanguage: 'en' | 'ja' | 'auto'): CvLanguage {
+function detectDocumentLanguage(
+  content: string,
+  defaultLanguage: 'en' | 'ja' | 'auto'
+): CvLanguage {
   // Check frontmatter for language field
   const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (frontmatterMatch) {
@@ -124,12 +127,12 @@ function detectDocumentLanguage(content: string, defaultLanguage: 'en' | 'ja' | 
       return languageMatch[1] as CvLanguage;
     }
   }
-  
+
   // If defaultLanguage is set to a specific language, use it
   if (defaultLanguage !== 'auto') {
     return defaultLanguage;
   }
-  
+
   // Auto-detect from content: check for Japanese characters
   // Check section headings (## lines) for Japanese characters
   const headingMatches = content.match(/^##\s+(.+)$/gm);
@@ -140,14 +143,14 @@ function detectDocumentLanguage(content: string, defaultLanguage: 'en' | 'ja' | 
       }
     }
   }
-  
+
   // Check frontmatter for name_ja field
   if (frontmatterMatch) {
     if (/^name_ja:/m.test(frontmatterMatch[1])) {
       return 'ja';
     }
   }
-  
+
   // Default to English
   return 'en';
 }
@@ -172,7 +175,7 @@ async function validateDocument(document: TextDocument): Promise<void> {
       document.getText(),
       validationOptions.language ?? 'auto'
     );
-    
+
     const validationResult = runValidation(result.document, {
       ...validationOptions,
       language: documentLanguage,

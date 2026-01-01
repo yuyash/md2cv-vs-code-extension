@@ -46,16 +46,22 @@ class Logger implements vscode.Disposable {
    */
   private formatMessage(level: string, message: string, ...args: unknown[]): string {
     const timestamp = new Date().toISOString();
-    const formattedArgs = args.length > 0 ? ' ' + args.map(arg => {
-      if (typeof arg === 'object') {
-        try {
-          return JSON.stringify(arg, null, 2);
-        } catch {
-          return String(arg);
-        }
-      }
-      return String(arg);
-    }).join(' ') : '';
+    const formattedArgs =
+      args.length > 0
+        ? ' ' +
+          args
+            .map((arg) => {
+              if (typeof arg === 'object') {
+                try {
+                  return JSON.stringify(arg, null, 2);
+                } catch {
+                  return String(arg);
+                }
+              }
+              return String(arg);
+            })
+            .join(' ')
+        : '';
     return `[${timestamp}] [${level}] ${message}${formattedArgs}`;
   }
 

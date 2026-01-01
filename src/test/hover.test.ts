@@ -194,7 +194,8 @@ Just some plain text here.
       const result = parseDocument(content);
       expect(result.document).not.toBeNull();
 
-      const hover = getHoverInfo(result.document!, { line: 8, character: 10 }, content);
+      // Call getHoverInfo to ensure it doesn't crash on plain text
+      getHoverInfo(result.document!, { line: 8, character: 10 }, content);
 
       // May return null or frontmatter block hover depending on implementation
       // The important thing is it doesn't crash

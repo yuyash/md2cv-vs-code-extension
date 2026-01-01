@@ -373,18 +373,19 @@ export function validateSections(
   for (const requiredId of requiredSectionIds) {
     if (!presentSectionIds.includes(requiredId)) {
       const def = SECTION_DEFINITIONS.find((d) => d.id === requiredId);
-      
+
       // Get tags filtered by language using md2cv's getTagsForLanguage
       let tags: string;
       if (language !== 'auto') {
         const filteredTags = getTagsForLanguage(requiredId, language);
-        tags = filteredTags.length > 0 
-          ? filteredTags.slice(0, 3).join(', ')
-          : def?.tags.slice(0, 3).join(', ') ?? requiredId;
+        tags =
+          filteredTags.length > 0
+            ? filteredTags.slice(0, 3).join(', ')
+            : (def?.tags.slice(0, 3).join(', ') ?? requiredId);
       } else {
         tags = def?.tags.slice(0, 3).join(', ') ?? requiredId;
       }
-      
+
       diagnostics.push(
         createDiagnostic(
           `Missing required section for ${format}: ${requiredId}. Use one of: ${tags}`,
@@ -407,7 +408,7 @@ export function validateSections(
       if (isRirekishoOnlySection && format === 'cv') {
         continue;
       }
-      
+
       diagnostics.push(
         createDiagnostic(
           `Section "${section.title}" (${section.id}) is not valid for ${format} format.`,
@@ -495,7 +496,9 @@ export function validateDocument(
 
   // Validate sections
   if (opts.validateSections) {
-    diagnostics.push(...validateSections(document.sections, opts.format, documentRange, opts.language));
+    diagnostics.push(
+      ...validateSections(document.sections, opts.format, documentRange, opts.language)
+    );
   }
 
   // Validate code blocks

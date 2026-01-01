@@ -21,7 +21,11 @@ import {
 } from './sectionDefinitions.js';
 import { METADATA_FIELDS, getTagsForLanguage, type CvLanguage } from './validator.js';
 import type { ParsedDocumentWithPositions, LocatedCodeBlock, LocatedSection } from './parser.js';
-import { findCodeBlockAtPosition, findContainingSectionAtPosition, isInFrontmatter } from './parser.js';
+import {
+  findCodeBlockAtPosition,
+  findContainingSectionAtPosition,
+  isInFrontmatter,
+} from './parser.js';
 
 /**
  * Completion context information
@@ -139,9 +143,10 @@ function calculateYamlPath(
  */
 export function getCodeBlockTypeCompletions(sectionId?: string): CompletionItem[] {
   // Filter to only the matching code block type if we're in a section
-  const types = sectionId && CODE_BLOCK_TYPES.includes(sectionId as CodeBlockType)
-    ? [sectionId as CodeBlockType]
-    : CODE_BLOCK_TYPES;
+  const types =
+    sectionId && CODE_BLOCK_TYPES.includes(sectionId as CodeBlockType)
+      ? [sectionId as CodeBlockType]
+      : CODE_BLOCK_TYPES;
 
   return types.map((type) => {
     const description = getCodeBlockTypeDescription(type);
@@ -168,9 +173,10 @@ export function getCodeBlockTypeCompletions(sectionId?: string): CompletionItem[
  */
 export function getCodeBlockSnippetCompletions(sectionId?: string): CompletionItem[] {
   // Filter to only the matching code block type if we're in a section
-  const types = sectionId && CODE_BLOCK_TYPES.includes(sectionId as CodeBlockType)
-    ? [sectionId as CodeBlockType]
-    : CODE_BLOCK_TYPES;
+  const types =
+    sectionId && CODE_BLOCK_TYPES.includes(sectionId as CodeBlockType)
+      ? [sectionId as CodeBlockType]
+      : CODE_BLOCK_TYPES;
 
   return types.map((type) => {
     const description = getCodeBlockTypeDescription(type);
@@ -632,7 +638,7 @@ export function getSectionHeadingCompletions(
 
     // Get tags for the specified language
     const tags = getTagsForLanguage(def.id, language);
-    
+
     // If no tags for this language, skip this section
     if (tags.length === 0) continue;
 
@@ -679,12 +685,21 @@ export function getSectionHeadingCompletions(
  * Returns appropriate completions based on context
  */
 export function getCompletions(context: CompletionContext): CompletionItem[] {
-  const { linePrefix, isInCodeBlock, codeBlock, isInFrontmatter, yamlPath, language, document, currentSection } = context;
+  const {
+    linePrefix,
+    isInCodeBlock,
+    codeBlock,
+    isInFrontmatter,
+    yamlPath,
+    language,
+    document,
+    currentSection,
+  } = context;
 
   // Check if we're typing a section heading (# )
   if (linePrefix.match(/^#\s+\S*$/)) {
     // Get existing section IDs from the document
-    const existingSectionIds = new Set(document.sections.map(s => s.id));
+    const existingSectionIds = new Set(document.sections.map((s) => s.id));
     return getSectionHeadingCompletions(language, existingSectionIds);
   }
 

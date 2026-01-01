@@ -4,6 +4,7 @@ src/**
 node_modules/**
 .kiro/**
 .git/**
+.github/**
 .gitignore
 *.map
 *.ts
@@ -14,3 +15,10 @@ esbuild.config.js
 **/*.test.ts
 **/*.spec.ts
 .eslintrc.json
+eslint.config.mjs
+coverage/**
+.prettierrc
+.prettierignore
+.release-please-manifest.json
+release-please-config.json
+README.ja.md
