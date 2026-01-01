@@ -5,12 +5,24 @@
   "version": "1.0.0",
   "publisher": "yuyash",
   "license": "GPL-3.0",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yuyash/md2cv-vs-extension"
+  },
+  "homepage": "https://github.com/yuyash/md2cv-vs-extension#readme",
+  "bugs": {
+    "url": "https://github.com/yuyash/md2cv-vs-extension/issues"
+  },
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Formatters",
-    "Other"
+    "Formatters"
   ],
   "keywords": [
     "resume",
