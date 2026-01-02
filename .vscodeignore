@@ -1,11 +1,11 @@
 .vscode/**
 .vscode-test/**
 src/**
-node_modules/**
 .kiro/**
 .git/**
 .github/**
 .gitignore
+.husky/**
 *.map
 *.ts
 !dist/**

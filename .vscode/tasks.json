@@ -13,6 +13,13 @@
       "command": "npm run build && npm run build:e2e && npm run copy:fixtures",
       "group": "build",
       "problemMatcher": "$tsc"
+    },
+    {
+      "label": "npm: package:vsce",
+      "type": "shell",
+      "command": "npm run package",
+      "group": "build",
+      "problemMatcher": []
     }
   ]
 }
