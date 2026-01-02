@@ -97,7 +97,7 @@ For detailed Markdown format documentation, see the [md2cv documentation](https:
 
 ## Requirements
 
-- VS Code 1.102.0 or higher
+- VS Code 1.90.0 or higher
 
 ## Related Projects
 
