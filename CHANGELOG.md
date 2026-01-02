@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.1.0...v1.2.0) (2026-01-02)
+
+
+### Features
+
+* prepare VS Code extension packaging and release workflow ([#6](https://github.com/yuyash/md2cv-vs-code-extension/issues/6)) ([436cf68](https://github.com/yuyash/md2cv-vs-code-extension/commit/436cf68d2b2923a51863a5d838c7d35fe16af072))
+
 ## [1.1.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.0.0...v1.1.0) (2026-01-01)
 
 
