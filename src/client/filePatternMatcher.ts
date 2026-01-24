@@ -15,18 +15,20 @@ export function matchesAnyPattern(document: vscode.TextDocument, patterns: strin
 
   // Check each pattern
   for (const pattern of patterns) {
-    const relativePattern = new vscode.RelativePattern(
-      vscode.workspace.getWorkspaceFolder(documentUri) ??
-        vscode.workspace.workspaceFolders?.[0] ??
-        '',
-      pattern
-    );
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
 
-    const matcher = new vscode.GlobPattern(relativePattern);
+    if (workspaceFolder) {
+      const relativePattern = new vscode.RelativePattern(workspaceFolder, pattern);
 
-    // Use VS Code's built-in matching
-    if (vscode.languages.match({ pattern: matcher, scheme: 'file' }, document) > 0) {
-      return true;
+      // Use VS Code's built-in matching
+      if (vscode.languages.match({ pattern: relativePattern, scheme: 'file' }, document) > 0) {
+        return true;
+      }
+    } else {
+      // Fallback to simple pattern matching if no workspace folder
+      if (vscode.languages.match({ pattern: pattern, scheme: 'file' }, document) > 0) {
+        return true;
+      }
     }
   }
 
