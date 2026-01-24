@@ -14,5 +14,6 @@
   "config.templateLanguage": "Default language for generated templates",
   "config.includeTemplateComments": "Include explanatory comments in generated templates",
   "config.photoPath": "Path to photo image for Japanese rirekisho format",
-  "config.defaultLanguage": "Default CV language (auto-detect, English, or Japanese)"
+  "config.defaultLanguage": "Default CV language (auto-detect, English, or Japanese)",
+  "config.cvFilePatterns": "File patterns to enable md2cv features (glob patterns like **/cv*.md)"
 }

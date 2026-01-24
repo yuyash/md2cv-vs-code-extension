@@ -19,6 +19,7 @@ export const ConfigKeys = {
   INCLUDE_TEMPLATE_COMMENTS: 'includeTemplateComments',
   PHOTO_PATH: 'photoPath',
   DEFAULT_LANGUAGE: 'defaultLanguage',
+  CV_FILE_PATTERNS: 'cvFilePatterns',
 } as const;
 
 /**
@@ -52,6 +53,8 @@ export interface Md2cvConfig {
   photoPath: string;
   /** Default CV language (auto-detect, English, or Japanese) */
   defaultLanguage: CvLanguage;
+  /** File patterns to enable md2cv features (glob patterns) */
+  cvFilePatterns: string[];
 }
 
 /**
@@ -67,6 +70,7 @@ export const DEFAULT_CONFIG: Readonly<Md2cvConfig> = {
   includeTemplateComments: true,
   photoPath: '',
   defaultLanguage: 'auto',
+  cvFilePatterns: ['**/cv*.md', '**/resume*.md', '**/rirekisho*.md', '**/shokumukeirekisho*.md'],
 };
 
 /**
@@ -154,6 +158,10 @@ export class ConfigurationManager implements vscode.Disposable {
       defaultLanguage: config.get<CvLanguage>(
         ConfigKeys.DEFAULT_LANGUAGE,
         DEFAULT_CONFIG.defaultLanguage
+      ),
+      cvFilePatterns: config.get<string[]>(
+        ConfigKeys.CV_FILE_PATTERNS,
+        DEFAULT_CONFIG.cvFilePatterns
       ),
     };
   }
@@ -293,6 +301,13 @@ export class ConfigurationManager implements vscode.Disposable {
    */
   public getDefaultLanguage(): CvLanguage {
     return this._cachedConfig.defaultLanguage;
+  }
+
+  /**
+   * Get the CV file patterns
+   */
+  public getCvFilePatterns(): string[] {
+    return this._cachedConfig.cvFilePatterns;
   }
 
   /**
