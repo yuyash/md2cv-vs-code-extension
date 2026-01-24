@@ -2,24 +2,24 @@
   "name": "md2cv-vscode",
   "displayName": "md2cv",
   "description": "Create resumes and CVs from Markdown with real-time preview, PDF export, and IntelliSense",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "publisher": "yuyash",
   "license": "GPL-3.0",
   "icon": "images/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yuyash/md2cv-vs-extension"
+    "url": "https://github.com/yuyash/md2cv-vs-code-extension"
   },
-  "homepage": "https://github.com/yuyash/md2cv-vs-extension#readme",
+  "homepage": "https://github.com/yuyash/md2cv-vs-code-extension#readme",
   "bugs": {
-    "url": "https://github.com/yuyash/md2cv-vs-extension/issues"
+    "url": "https://github.com/yuyash/md2cv-vs-code-extension/issues"
   },
   "galleryBanner": {
     "color": "#1e1e1e",
     "theme": "dark"
   },
   "engines": {
-    "vscode": "^1.102.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Formatters"
@@ -309,7 +309,7 @@
     "@eslint/js": "^9.39.2",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.0.3",
-    "@types/vscode": "^1.102.0",
+    "@types/vscode": "^1.90.0",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.27.2",

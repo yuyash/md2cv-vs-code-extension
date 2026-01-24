@@ -41,13 +41,19 @@ jobs:
         run: npm run build
 
       - name: Package VS Code extension
-        run: npx vsce package
+        run: npx @vscode/vsce package
 
       - name: Get package info
         id: package
         run: |
           VSIX_FILE=$(ls *.vsix)
           echo "vsix_file=$VSIX_FILE" >> $GITHUB_OUTPUT
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          npx @vscode/vsce publish --packagePath "${{ steps.package.outputs.vsix_file }}" --pat "$VSCE_PAT"
 
       - name: Upload VSIX to GitHub Release
         env:
