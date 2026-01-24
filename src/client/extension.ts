@@ -27,6 +27,7 @@ import {
   type CvLanguage,
 } from './configManager';
 import { logger, getLogger, disposeLogger, LogLevel } from './logger';
+import { matchesAnyPattern } from './filePatternMatcher';
 
 let client: LanguageClient | undefined;
 let previewProvider: PreviewProvider | undefined;
@@ -40,14 +41,46 @@ let configManager: ConfigurationManager | undefined;
 const documentLanguageOverrides: Map<string, 'en' | 'ja'> = new Map();
 
 /**
+ * Check if md2cv features should be enabled for the given document
+ * Based on file pattern matching from configuration
+ */
+function shouldEnableMd2cvFeatures(document: vscode.TextDocument): boolean {
+  if (!document || document.languageId !== 'markdown') {
+    return false;
+  }
+
+  const patterns = configManager?.getCvFilePatterns() ?? [];
+
+  // If no patterns configured, disable for all files (safe default)
+  if (patterns.length === 0) {
+    return false;
+  }
+
+  return matchesAnyPattern(document, patterns);
+}
+
+/**
  * Update the context key for Japanese CV detection
  * This enables/disables the format change command based on document language
  */
 async function updateJapaneseCVContext(document: vscode.TextDocument | undefined): Promise<void> {
   if (!document || document.languageId !== 'markdown') {
     await vscode.commands.executeCommand('setContext', 'md2cv.isJapaneseCV', false);
+    await vscode.commands.executeCommand('setContext', 'md2cv.isCvFile', false);
     // Hide status bar when not a markdown file, but only if preview is not active
     // When preview is focused, we want to keep showing the status bar
+    if (!previewProvider?.isVisible()) {
+      statusBarManager?.hide();
+    }
+    return;
+  }
+
+  // Check if this file matches CV patterns
+  const isCvFile = shouldEnableMd2cvFeatures(document);
+  await vscode.commands.executeCommand('setContext', 'md2cv.isCvFile', isCvFile);
+
+  if (!isCvFile) {
+    await vscode.commands.executeCommand('setContext', 'md2cv.isJapaneseCV', false);
     if (!previewProvider?.isVisible()) {
       statusBarManager?.hide();
     }
@@ -127,8 +160,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // Client options - configure document selector and synchronization
   const clientOptions: LanguageClientOptions = {
-    // Register for markdown files
-    documentSelector: [{ scheme: 'file', language: 'markdown' }],
+    // Register for markdown files that match CV patterns
+    documentSelector: [
+      {
+        scheme: 'file',
+        language: 'markdown',
+        // Note: VS Code Language Client doesn't support dynamic pattern filtering
+        // We'll handle filtering in the server based on configuration
+      },
+    ],
     synchronize: {
       // Watch for changes to markdown files
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.md'),
@@ -767,6 +807,16 @@ function handleConfigurationChange(event: ConfigChangeEvent): void {
 
     case ConfigKeys.DEFAULT_LANGUAGE:
       // Re-evaluate language for current document when default language changes
+      {
+        const editor = vscode.window.activeTextEditor;
+        if (editor && editor.document.languageId === 'markdown') {
+          updateJapaneseCVContext(editor.document);
+        }
+      }
+      break;
+
+    case ConfigKeys.CV_FILE_PATTERNS:
+      // Re-evaluate all open markdown documents when patterns change
       {
         const editor = vscode.window.activeTextEditor;
         if (editor && editor.document.languageId === 'markdown') {

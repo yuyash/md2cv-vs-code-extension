@@ -14,5 +14,6 @@
   "config.templateLanguage": "生成されるテンプレートのデフォルト言語",
   "config.includeTemplateComments": "生成されるテンプレートに説明コメントを含める",
   "config.photoPath": "日本式履歴書用の写真画像のパス",
-  "config.defaultLanguage": "デフォルトのCV言語（自動検出、英語、または日本語）"
+  "config.defaultLanguage": "デフォルトのCV言語（自動検出、英語、または日本語）",
+  "config.cvFilePatterns": "md2cv機能を有効にするファイルパターン（**/cv*.md のようなglobパターン）"
 }
