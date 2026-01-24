@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.2.0...v1.3.0) (2026-01-24)
+
+
+### Features
+
+* add file pattern matching ([#10](https://github.com/yuyash/md2cv-vs-code-extension/issues/10)) ([ec85a4f](https://github.com/yuyash/md2cv-vs-code-extension/commit/ec85a4f9c09b1c31ce717b77e225e40f3b0670e0))
+
 ## [1.2.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.1.0...v1.2.0) (2026-01-02)
 
 
