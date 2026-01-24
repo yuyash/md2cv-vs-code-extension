@@ -56,6 +56,103 @@ let validationOptions: Partial<ValidationOptions> = {
   validateCodeBlocks: true,
 };
 
+/**
+ * CV file patterns from configuration
+ */
+let cvFilePatterns: string[] = [
+  '**/cv*.md',
+  '**/resume*.md',
+  '**/rirekisho*.md',
+  '**/shokumukeirekisho*.md',
+];
+
+/**
+ * Check if a document URI matches any of the CV file patterns
+ */
+function matchesCvPattern(uri: string): boolean {
+  if (cvFilePatterns.length === 0) {
+    return false;
+  }
+
+  // Extract file path from URI
+  const filePath = uri.replace(/^file:\/\//, '');
+
+  for (const pattern of cvFilePatterns) {
+    if (matchPattern(filePath, pattern)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Simple glob pattern matching
+ */
+function matchPattern(path: string, pattern: string): boolean {
+  const normalizedPath = path.replace(/\\/g, '/');
+  const normalizedPattern = pattern.replace(/\\/g, '/');
+  const regexPattern = globToRegex(normalizedPattern);
+  return regexPattern.test(normalizedPath);
+}
+
+/**
+ * Convert a glob pattern to a regular expression
+ */
+function globToRegex(pattern: string): RegExp {
+  let regex = '';
+  let inGroup = false;
+
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+
+    switch (char) {
+      case '/':
+        regex += '\\/';
+        break;
+      case '*':
+        if (pattern[i + 1] === '*') {
+          regex += '.*';
+          i++;
+          if (pattern[i + 1] === '/') {
+            i++;
+            regex += '\\/';
+          }
+        } else {
+          regex += '[^/]*';
+        }
+        break;
+      case '?':
+        regex += '[^/]';
+        break;
+      case '{':
+        inGroup = true;
+        regex += '(';
+        break;
+      case '}':
+        inGroup = false;
+        regex += ')';
+        break;
+      case ',':
+        regex += inGroup ? '|' : ',';
+        break;
+      case '.':
+      case '(':
+      case ')':
+      case '+':
+      case '|':
+      case '^':
+      case '$':
+        regex += '\\' + char;
+        break;
+      default:
+        regex += char;
+    }
+  }
+
+  return new RegExp('^' + regex + '$', 'i');
+}
+
 connection.onInitialize((_params: InitializeParams): InitializeResult => {
   return {
     capabilities: {
@@ -89,6 +186,9 @@ connection.onDidChangeConfiguration((params) => {
     }
     if (settings.defaultFormat !== undefined) {
       validationOptions = { ...validationOptions, format: settings.defaultFormat };
+    }
+    if (settings.cvFilePatterns !== undefined) {
+      cvFilePatterns = settings.cvFilePatterns;
     }
     // Re-validate all open documents
     documents.all().forEach((doc) => validateDocument(doc));
@@ -159,6 +259,14 @@ function detectDocumentLanguage(
  * Validate document and send diagnostics
  */
 async function validateDocument(document: TextDocument): Promise<void> {
+  // Check if document matches CV patterns
+  if (!matchesCvPattern(document.uri)) {
+    // Clear diagnostics for non-CV files
+    connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+    documentDiagnostics.delete(document.uri);
+    return;
+  }
+
   const result = documentCache.getOrParse(document);
   const diagnostics: Diagnostic[] = [];
   const validationDiags: ValidationDiagnostic[] = [];
@@ -215,7 +323,7 @@ documents.onDidClose((event) => {
 // Completion handler
 connection.onCompletion((params: TextDocumentPositionParams): CompletionItem[] => {
   const document = documents.get(params.textDocument.uri);
-  if (!document) return [];
+  if (!document || !matchesCvPattern(document.uri)) return [];
 
   const result = documentCache.getOrParse(document);
   if (!result.document) return [];
@@ -243,7 +351,7 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 // Hover handler
 connection.onHover((params) => {
   const document = documents.get(params.textDocument.uri);
-  if (!document) return null;
+  if (!document || !matchesCvPattern(document.uri)) return null;
 
   const result = documentCache.getOrParse(document);
   if (!result.document) return null;
@@ -254,7 +362,7 @@ connection.onHover((params) => {
 // Code action handler (Quick Fix)
 connection.onCodeAction((params) => {
   const document = documents.get(params.textDocument.uri);
-  if (!document) return [];
+  if (!document || !matchesCvPattern(document.uri)) return [];
 
   const result = documentCache.getOrParse(document);
   const storedDiagnostics = documentDiagnostics.get(document.uri) ?? [];
@@ -280,7 +388,7 @@ connection.onCodeAction((params) => {
 // Definition handler
 connection.onDefinition((params) => {
   const document = documents.get(params.textDocument.uri);
-  if (!document) return null;
+  if (!document || !matchesCvPattern(document.uri)) return null;
 
   const result = documentCache.getOrParse(document);
   if (!result.document) return null;
@@ -296,7 +404,7 @@ connection.onDefinition((params) => {
 // References handler
 connection.onReferences((params) => {
   const document = documents.get(params.textDocument.uri);
-  if (!document) return [];
+  if (!document || !matchesCvPattern(document.uri)) return [];
 
   const result = documentCache.getOrParse(document);
   if (!result.document) return [];
@@ -313,7 +421,7 @@ connection.onReferences((params) => {
 // Document symbol handler for outline view
 connection.onDocumentSymbol((params): DocumentSymbol[] => {
   const document = documents.get(params.textDocument.uri);
-  if (!document) return [];
+  if (!document || !matchesCvPattern(document.uri)) return [];
 
   const result = documentCache.getOrParse(document);
   if (!result.document) return [];
@@ -340,7 +448,7 @@ export function updateYamlFormatOptions(options: Partial<YamlFormatOptions>): vo
 // Document range formatting handler (for code block formatting)
 connection.onDocumentRangeFormatting((params: DocumentRangeFormattingParams): TextEdit[] | null => {
   const document = documents.get(params.textDocument.uri);
-  if (!document) return null;
+  if (!document || !matchesCvPattern(document.uri)) return null;
 
   const result = documentCache.getOrParse(document);
   if (!result.document) return null;

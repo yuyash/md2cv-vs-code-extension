@@ -165,6 +165,19 @@
             "Japanese CV (日本語履歴書)"
           ],
           "description": "%config.defaultLanguage%"
+        },
+        "md2cv.cvFilePatterns": {
+          "type": "array",
+          "default": [
+            "**/cv*.md",
+            "**/resume*.md",
+            "**/rirekisho*.md",
+            "**/shokumukeirekisho*.md"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "%config.cvFilePatterns%"
         }
       }
     },
