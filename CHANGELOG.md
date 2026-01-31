@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.3.0...v1.3.1) (2026-01-31)
+
+
+### Bug Fixes
+
+* downgrade mocha to 11.3.0 to fix diff vulnerability ([#12](https://github.com/yuyash/md2cv-vs-code-extension/issues/12)) ([794f412](https://github.com/yuyash/md2cv-vs-code-extension/commit/794f41259e787dcd20fdf96f9642b9ce0e7d925d))
+
 ## [1.3.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.2.0...v1.3.0) (2026-01-24)
 
 
