@@ -1,6 +1,12 @@
 /**
  * Preview Provider for md2cv documents
- * Provides real-time HTML preview with zoom/pan functionality
+ * Provides real-time HTML preview with Paged.js for accurate page break rendering
+ *
+ * Architecture:
+ * - Uses Paged.js polyfill to render paginated content in browser
+ * - Direct HTML rendering (no iframe) for better Paged.js integration
+ * - Zoom/pan controls work with paginated pages
+ * - PDF export uses same HTML generation for consistency
  */
 
 import * as vscode from 'vscode';
@@ -27,6 +33,9 @@ import {
 import { logger } from '../client/logger';
 import { withEnvFromFile } from '../client/envLoader';
 import { getMarginSettings } from '../client/cvOptions';
+
+// Paged.js CDN URL
+const PAGED_JS_URL = 'https://unpkg.com/pagedjs/dist/paged.polyfill.js';
 
 // ============================================================================
 // Types
@@ -84,12 +93,10 @@ class HtmlGenerator {
 
     logger.debug('Generating HTML for format', { format, paperSize });
 
-    // Detect language for format decisions
     const language = detectLanguage(cvInput);
 
     switch (format) {
       case 'rirekisho':
-        // Rirekisho is only for Japanese - fall back to CV for English
         if (language === 'en') {
           logger.debug('Rirekisho requested but language is EN, using CV format');
           return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
@@ -102,7 +109,6 @@ class HtmlGenerator {
         });
 
       case 'both':
-        // Both is only for Japanese - fall back to CV for English
         if (language === 'en') {
           logger.debug('Both requested but language is EN, using CV format');
           return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
@@ -135,11 +141,8 @@ class HtmlGenerator {
       marginMm: getMarginSettings(),
     });
 
-    // Get paper dimensions for each format
     const cvDimensions = PAGE_SIZES[paperSize];
     const rirekishoDimensions = PAGE_SIZES_LANDSCAPE[paperSize];
-
-    // Convert mm to pixels (96 DPI, 1 inch = 25.4mm)
     const mmToPx = 96 / 25.4;
     const cvWidthPx = Math.round(cvDimensions.width * mmToPx);
     const cvHeightPx = Math.round(cvDimensions.height * mmToPx);
@@ -165,43 +168,6 @@ iframe{border:none;box-shadow:0 2mm 8mm rgba(0,0,0,0.3);background:#fff}
 <div class="header">履歴書</div>
 <div class="content"><iframe id="rirekisho-frame" srcdoc="${escapeHtml(rirekishoHtml)}" style="width:${rirekishoWidthPx}px;height:${rirekishoHeightPx}px"></iframe></div>
 </div>
-<script>
-(function(){
-  // Adjust CV iframe height based on content (don't override width/padding - md2cv handles it)
-  const cvFrame = document.getElementById('cv-frame');
-  cvFrame.onload = function() {
-    const doc = cvFrame.contentDocument;
-    if (doc && doc.body) {
-      // Only adjust height if content is taller than paper
-      const contentHeight = doc.body.scrollHeight;
-      if (contentHeight > ${cvHeightPx}) {
-        cvFrame.style.height = contentHeight + 'px';
-      }
-    }
-  };
-  
-  // Adjust Rirekisho iframe size based on spread element
-  const rirekishoFrame = document.getElementById('rirekisho-frame');
-  rirekishoFrame.onload = function() {
-    const doc = rirekishoFrame.contentDocument;
-    if (doc) {
-      const spread = doc.querySelector('.spread');
-      if (spread) {
-        const rect = spread.getBoundingClientRect();
-        rirekishoFrame.style.width = Math.ceil(rect.width) + 'px';
-        rirekishoFrame.style.height = Math.ceil(rect.height) + 'px';
-        if (doc.body) {
-          doc.body.style.width = Math.ceil(rect.width) + 'px';
-          doc.body.style.height = Math.ceil(rect.height) + 'px';
-          doc.body.style.overflow = 'hidden';
-          doc.body.style.margin = '0';
-          doc.body.style.padding = '0';
-        }
-      }
-    }
-  };
-})();
-</script>
 </body></html>`;
   }
 
@@ -216,66 +182,50 @@ iframe{border:none;box-shadow:0 2mm 8mm rgba(0,0,0,0.3);background:#fff}
 }
 
 // ============================================================================
-// Webview HTML Builder
+// Paged.js Webview Builder
 // ============================================================================
 
-/**
- * Options for building webview HTML
- */
-interface WebviewHtmlOptions {
+interface PagedWebviewOptions {
   format: OutputFormat;
   paperSize: PaperSize;
 }
 
 /**
- * Paper dimensions type (from md2cv PAGE_SIZES)
+ * Escape string for use in JavaScript template literal
  */
-type PaperDimensions = { width: number; height: number };
-
-/**
- * Get paper dimensions based on format and paper size
- * CV uses portrait, Rirekisho uses landscape
- */
-function getPaperDimensions(format: OutputFormat, paperSize: PaperSize): PaperDimensions {
-  if (format === 'rirekisho') {
-    return PAGE_SIZES_LANDSCAPE[paperSize];
-  }
-  // CV uses portrait orientation
-  return PAGE_SIZES[paperSize];
+function escapeForTemplateLiteral(str: string): string {
+  return str.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 }
 
 /**
- * Build the webview HTML that wraps md2cv output with zoom/pan controls
- *
- * Design: md2cv's HTML is displayed in an iframe, and the outer document
- * provides zoom/pan functionality. This keeps md2cv's CSS isolated.
- *
- * The iframe size is set based on the document format and paper size:
- * - CV: Portrait orientation (e.g., A4 = 210mm x 297mm)
- * - Rirekisho: Landscape orientation (e.g., A4 = 297mm x 210mm)
- *
- * Important: We don't override md2cv's body styles for CV format.
- * md2cv already sets correct width and padding (margins) in its CSS.
+ * Build webview HTML with Paged.js for accurate page break rendering
  */
-function buildWebviewHtml(cvHtml: string, options: WebviewHtmlOptions): string {
+function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): string {
   const { format, paperSize } = options;
-  const dimensions = getPaperDimensions(format, paperSize);
 
-  logger.debug('Building webview HTML', {
-    format,
-    paperSize,
-    dimensions,
-    isLandscape: format === 'rirekisho',
-  });
-
-  // Escape HTML for embedding in JavaScript template literal
-  const escapedHtml = cvHtml.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
-
-  // Convert mm to pixels (assuming 96 DPI, 1 inch = 25.4mm)
-  // 1mm = 96 / 25.4 ≈ 3.78 pixels
+  const isRirekisho = format === 'rirekisho';
+  const dimensions = isRirekisho ? PAGE_SIZES_LANDSCAPE[paperSize] : PAGE_SIZES[paperSize];
   const mmToPx = 96 / 25.4;
   const widthPx = Math.round(dimensions.width * mmToPx);
   const heightPx = Math.round(dimensions.height * mmToPx);
+
+  logger.debug('Building paged webview HTML', { format, paperSize, widthPx, heightPx });
+
+  // Extract content from CV HTML (between <body> tags)
+  const bodyMatch = cvHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  const bodyContent = bodyMatch ? bodyMatch[1] : cvHtml;
+
+  // Extract styles from CV HTML
+  const styleMatches = cvHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
+  const cvStyles = styleMatches
+    .map((s) => {
+      const match = s.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+      return match ? match[1] : '';
+    })
+    .join('\n');
+
+  const escapedContent = escapeForTemplateLiteral(bodyContent);
+  const escapedStyles = escapeForTemplateLiteral(cvStyles);
 
   return `<!DOCTYPE html>
 <html lang="ja">
@@ -284,10 +234,14 @@ function buildWebviewHtml(cvHtml: string, options: WebviewHtmlOptions): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden}
-#viewport{position:fixed;inset:0;overflow:auto;background:#525252}
-#container{display:inline-block;padding:40px;transform-origin:0 0}
-#frame{display:block;border:none;box-shadow:0 2mm 12mm rgba(0,0,0,0.5);background:#fff}
+html,body{width:100%;height:100%;overflow:hidden;background:#525252}
+#viewport{position:fixed;inset:0;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:40px}
+#paged-container{transform-origin:top center;display:flex;flex-direction:column;align-items:center;gap:20px}
+.pagedjs_page{background:#fff;box-shadow:0 2mm 12mm rgba(0,0,0,0.5);margin-bottom:20px}
+#loading{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:#fff;padding:20px 40px;border-radius:8px;font-family:system-ui;z-index:2000}
+#debug-panel{position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.85);color:#0f0;padding:10px 15px;border-radius:6px;font-family:'SF Mono',Monaco,monospace;font-size:11px;max-width:400px;max-height:300px;overflow:auto;z-index:1000;display:none}
+#debug-panel.visible{display:block}
+#debug-panel pre{margin:0;white-space:pre-wrap;word-break:break-all}
 #controls{position:fixed;bottom:20px;right:20px;display:flex;gap:6px;background:#2d2d2d;padding:8px 10px;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.4);border:1px solid #404040;z-index:1000}
 .btn{width:28px;height:28px;border:none;background:#3c3c3c;color:#e0e0e0;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold}
 .btn:hover{background:#505050}
@@ -297,15 +251,14 @@ html,body{width:100%;height:100%;overflow:hidden}
 .paper-btn{padding:4px 8px;border:none;background:#3c3c3c;color:#e0e0e0;border-radius:4px;cursor:pointer;font-size:11px;font-family:system-ui}
 .paper-btn:hover{background:#505050}
 .paper-btn.active{background:#0078d4;color:#fff}
-#debug-info{position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.7);color:#fff;padding:8px 12px;border-radius:4px;font-size:11px;font-family:monospace;z-index:1000;display:none}
+#page-info{position:fixed;top:20px;right:20px;background:#2d2d2d;padding:6px 12px;border-radius:6px;color:#e0e0e0;font-size:11px;font-family:system-ui;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:1000}
 </style>
 </head>
 <body>
-<div id="viewport">
-<div id="container">
-<iframe id="frame"></iframe>
-</div>
-</div>
+<div id="loading">Rendering pages...</div>
+<div id="debug-panel"><pre id="debug-log"></pre></div>
+<div id="viewport"><div id="paged-container"></div></div>
+<div id="page-info">Pages: <span id="page-count">-</span></div>
 <div id="paper-size-controls">
 <button class="paper-btn${paperSize === 'a3' ? ' active' : ''}" data-size="a3">A3</button>
 <button class="paper-btn${paperSize === 'a4' ? ' active' : ''}" data-size="a4">A4</button>
@@ -314,185 +267,140 @@ html,body{width:100%;height:100%;overflow:hidden}
 <button class="paper-btn${paperSize === 'letter' ? ' active' : ''}" data-size="letter">Letter</button>
 </div>
 <div id="controls">
+<button class="btn" id="btn-debug" title="Toggle Debug">🐛</button>
 <button class="btn" id="btn-out" title="Zoom Out">−</button>
 <span id="zoom-level">100%</span>
 <button class="btn" id="btn-in" title="Zoom In">+</button>
 <button class="btn" id="btn-reset" title="Reset">↺</button>
 <button class="btn" id="btn-fit" title="Fit Width">⊡</button>
 </div>
-<div id="debug-info"></div>
+<script src="${PAGED_JS_URL}"></script>
 <script>
 (function(){
 const vscode = acquireVsCodeApi();
-const cvHtml = \`${escapedHtml}\`;
+const debugPanel = document.getElementById('debug-panel');
+const debugLog = document.getElementById('debug-log');
+let debugVisible = false;
 
-// Paper dimensions from extension
+function log(msg, data) {
+  const ts = new Date().toISOString().substr(11, 12);
+  let line = '[' + ts + '] ' + msg;
+  if (data) line += ' ' + JSON.stringify(data);
+  debugLog.textContent += line + '\\n';
+  debugLog.scrollTop = debugLog.scrollHeight;
+  console.log('[md2cv]', msg, data || '');
+}
+
+document.getElementById('btn-debug').onclick = () => {
+  debugVisible = !debugVisible;
+  debugPanel.classList.toggle('visible', debugVisible);
+};
+
 const paperWidth = ${widthPx};
 const paperHeight = ${heightPx};
 const format = '${format}';
 const paperSize = '${paperSize}';
-const isRirekisho = format === 'rirekisho';
 
-const viewport = document.getElementById('viewport');
-const container = document.getElementById('container');
-const frame = document.getElementById('frame');
-const debugInfo = document.getElementById('debug-info');
+log('Initializing preview', { format, paperSize, paperWidth, paperHeight });
 
-// Paper size button handlers
-document.querySelectorAll('.paper-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const size = btn.dataset.size;
-    vscode.postMessage({ type: 'changePaperSize', paperSize: size });
-  });
-});
+const cvStyles = \`${escapedStyles}\`;
+const cvContent = \`${escapedContent}\`;
 
 let zoom = 1;
 const MIN = 0.25, MAX = 4, STEP = 0.05;
 
-// Write CV HTML to iframe
-const doc = frame.contentDocument;
-doc.open();
-doc.write(cvHtml);
-doc.close();
+const viewport = document.getElementById('viewport');
+const container = document.getElementById('paged-container');
+const loading = document.getElementById('loading');
+const pageCount = document.getElementById('page-count');
 
-// Update debug info
-function updateDebugInfo(msg) {
-  debugInfo.textContent = msg;
-}
-
-// Adjust iframe size based on format and paper size
-// For CV: Don't override body styles - md2cv's CSS handles width and padding (margins)
-// For Rirekisho: Use .spread element dimensions
-function adjustSize() {
-  const body = doc.body;
-  if (!body) {
-    updateDebugInfo('No body found');
-    return;
-  }
-  
-  let w, h;
-  
-  if (isRirekisho) {
-    // For rirekisho, use .spread element which has explicit dimensions
-    const spread = doc.querySelector('.spread');
-    if (spread) {
-      const rect = spread.getBoundingClientRect();
-      w = Math.ceil(rect.width);
-      h = Math.ceil(rect.height);
-      
-      // Constrain body to spread size
-      body.style.width = w + 'px';
-      body.style.height = h + 'px';
-      body.style.overflow = 'hidden';
-      body.style.margin = '0';
-      body.style.padding = '0';
-    } else {
-      // Fallback to paper dimensions
-      w = paperWidth;
-      h = paperHeight;
-    }
-  } else {
-    // For CV, use paper dimensions - md2cv's CSS already handles margins via padding
-    // Just set iframe size to match paper, don't override body styles
-    w = paperWidth;
-    h = paperHeight;
-    
-    // Allow content to expand height if needed
-    const contentHeight = body.scrollHeight;
-    if (contentHeight > h) {
-      h = contentHeight;
-    }
-  }
-  
-  frame.style.width = w + 'px';
-  frame.style.height = h + 'px';
-  
-  updateDebugInfo('Format: ' + format + ', Paper: ' + paperSize + ', Size: ' + w + 'x' + h + 'px');
-  updateZoom();
-}
+document.querySelectorAll('.paper-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    log('Paper size change', { size: btn.dataset.size });
+    vscode.postMessage({ type: 'changePaperSize', paperSize: btn.dataset.size });
+  });
+});
 
 function updateZoom() {
   container.style.transform = 'scale(' + zoom + ')';
   document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
 }
 
-function setZoom(z, cx, cy) {
+function setZoom(z) {
   z = Math.max(MIN, Math.min(MAX, z));
   if (z === zoom) return;
-  
-  // Calculate scroll adjustment for cursor-centered zoom
-  const rect = container.getBoundingClientRect();
-  const px = (viewport.scrollLeft + cx - rect.left) / zoom;
-  const py = (viewport.scrollTop + cy - rect.top) / zoom;
-  
   zoom = z;
   updateZoom();
-  
-  // Adjust scroll to keep point under cursor
-  const newRect = container.getBoundingClientRect();
-  viewport.scrollLeft = px * zoom + newRect.left - cx;
-  viewport.scrollTop = py * zoom + newRect.top - cy;
-  
   vscode.postMessage({ type: 'zoomChanged', zoomLevel: zoom });
 }
 
 function fitWidth() {
-  const fw = parseFloat(frame.style.width) || paperWidth;
-  zoom = Math.max(MIN, Math.min(MAX, (viewport.clientWidth - 80) / fw));
+  const pages = container.querySelectorAll('.pagedjs_page');
+  if (pages.length === 0) return;
+  const pageWidth = pages[0].offsetWidth || paperWidth;
+  zoom = Math.max(MIN, Math.min(MAX, (viewport.clientWidth - 80) / pageWidth));
   updateZoom();
   viewport.scrollLeft = 0;
   viewport.scrollTop = 0;
+  log('Fit width', { pageWidth, zoom });
 }
 
-// Event handlers
-document.getElementById('btn-in').onclick = () => setZoom(zoom + STEP, viewport.clientWidth/2, viewport.clientHeight/2);
-document.getElementById('btn-out').onclick = () => setZoom(zoom - STEP, viewport.clientWidth/2, viewport.clientHeight/2);
+document.getElementById('btn-in').onclick = () => setZoom(zoom + STEP);
+document.getElementById('btn-out').onclick = () => setZoom(zoom - STEP);
 document.getElementById('btn-reset').onclick = () => { zoom = 1; updateZoom(); };
 document.getElementById('btn-fit').onclick = fitWidth;
 
 viewport.addEventListener('wheel', e => {
-  // Pinch-to-zoom on trackpad sends wheel events with ctrlKey=true
-  // Also handle metaKey for keyboard shortcuts
   if (e.ctrlKey || e.metaKey) {
     e.preventDefault();
-    e.stopPropagation();
-    setZoom(zoom + (e.deltaY > 0 ? -STEP : STEP), e.clientX, e.clientY);
+    setZoom(zoom + (e.deltaY > 0 ? -STEP : STEP));
   }
-}, { passive: false, capture: true });
+}, { passive: false });
 
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey) {
-    if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(zoom + STEP, viewport.clientWidth/2, viewport.clientHeight/2); }
-    else if (e.key === '-') { e.preventDefault(); setZoom(zoom - STEP, viewport.clientWidth/2, viewport.clientHeight/2); }
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(zoom + STEP); }
+    else if (e.key === '-') { e.preventDefault(); setZoom(zoom - STEP); }
     else if (e.key === '0') { e.preventDefault(); zoom = 1; updateZoom(); }
   }
 });
 
-// Pinch-to-zoom (Safari)
-let gestureZoom = 1, gestureX = 0, gestureY = 0;
-viewport.addEventListener('gesturestart', e => { e.preventDefault(); gestureZoom = zoom; gestureX = e.clientX; gestureY = e.clientY; });
-viewport.addEventListener('gesturechange', e => { e.preventDefault(); setZoom(gestureZoom * e.scale, gestureX, gestureY); });
-viewport.addEventListener('gestureend', e => e.preventDefault());
-
-// Also capture wheel events at document level for pinch-to-zoom
-document.addEventListener('wheel', e => {
-  if (e.ctrlKey || e.metaKey) {
-    e.preventDefault();
-    e.stopPropagation();
-    setZoom(zoom + (e.deltaY > 0 ? -STEP : STEP), e.clientX, e.clientY);
-  }
-}, { passive: false, capture: true });
-
-// Messages from extension
 window.addEventListener('message', e => {
   if (e.data.type === 'setZoom') { zoom = e.data.zoomLevel || 1; updateZoom(); }
 });
 
-// Initialize
-frame.onload = () => { adjustSize(); setTimeout(fitWidth, 50); };
-setTimeout(adjustSize, 100);
-setTimeout(adjustSize, 300);
-window.addEventListener('resize', () => setTimeout(fitWidth, 100));
+
+async function renderWithPagedJs() {
+  log('Starting Paged.js render');
+  try {
+    const styleEl = document.createElement('style');
+    styleEl.textContent = cvStyles;
+    document.head.appendChild(styleEl);
+    
+    log('Configuring Paged.js', { width: paperWidth + 'px', height: paperHeight + 'px' });
+    
+    const paged = new Paged.Previewer();
+    const flow = await paged.preview(
+      cvContent,
+      [{ width: paperWidth + 'px', height: paperHeight + 'px' }],
+      container
+    );
+    
+    const pages = container.querySelectorAll('.pagedjs_page');
+    log('Paged.js render complete', { pageCount: pages.length });
+    
+    pageCount.textContent = pages.length.toString();
+    loading.style.display = 'none';
+    
+    setTimeout(fitWidth, 100);
+  } catch (error) {
+    log('Paged.js render error', { error: error.message || String(error) });
+    loading.textContent = 'Render error: ' + (error.message || error);
+    loading.style.background = '#d32f2f';
+  }
+}
+
+renderWithPagedJs();
 })();
 </script>
 </body>
@@ -522,7 +430,7 @@ export class PreviewProvider implements vscode.Disposable {
   private htmlGenerator = new HtmlGenerator();
 
   constructor(private readonly extensionUri: vscode.Uri) {
-    logger.info('PreviewProvider initialized');
+    logger.info('PreviewProvider initialized (Paged.js mode)');
     this.syncScrollManager = new SyncScrollManager();
 
     this.syncScrollManager.onScrollToPreview((message: ScrollSyncMessage) => {
@@ -635,9 +543,6 @@ export class PreviewProvider implements vscode.Disposable {
       this.lastValidHtml = cvHtml;
       this.state.documentUri = document.uri.toString();
 
-      // For 'both' format with Japanese content, the HTML is already complete with its own layout
-      // Don't wrap it in buildWebviewHtml which adds another iframe layer
-      // Check if the HTML contains the 'both' format markers (職務経歴書 and 履歴書 sections)
       const isBothFormatHtml =
         this.state.format === 'both' &&
         cvHtml.includes('id="cv-frame"') &&
@@ -646,7 +551,7 @@ export class PreviewProvider implements vscode.Disposable {
       if (isBothFormatHtml) {
         this.panel.webview.html = cvHtml;
       } else {
-        this.panel.webview.html = buildWebviewHtml(cvHtml, {
+        this.panel.webview.html = buildPagedWebviewHtml(cvHtml, {
           format: this.state.format === 'both' ? 'cv' : this.state.format,
           paperSize: this.state.paperSize,
         });
@@ -666,7 +571,7 @@ export class PreviewProvider implements vscode.Disposable {
         if (isBothFormatHtml) {
           this.panel.webview.html = this.lastValidHtml;
         } else {
-          this.panel.webview.html = buildWebviewHtml(this.lastValidHtml, {
+          this.panel.webview.html = buildPagedWebviewHtml(this.lastValidHtml, {
             format: this.state.format === 'both' ? 'cv' : this.state.format,
             paperSize: this.state.paperSize,
           });
@@ -694,9 +599,7 @@ export class PreviewProvider implements vscode.Disposable {
             to: newSize,
           });
           this.state.paperSize = newSize;
-          // Trigger the VS Code command to update configuration and status bar
           vscode.commands.executeCommand('md2cv.setPaperSize', newSize);
-          // Re-render with new paper size
           if (this.currentDocument) {
             this.render(this.currentDocument);
           }
@@ -705,7 +608,6 @@ export class PreviewProvider implements vscode.Disposable {
     }
   }
 
-  // Public API
   public setFormat(format: OutputFormat): void {
     logger.info('Format changed', { from: this.state.format, to: format });
     this.state.format = format;
@@ -732,15 +634,19 @@ export class PreviewProvider implements vscode.Disposable {
   public isVisible(): boolean {
     return this.panel?.visible ?? false;
   }
+
   public getCurrentDocument(): vscode.TextDocument | undefined {
     return this.currentDocument;
   }
+
   public onPreviewActive(callback: () => void): void {
     this.onPreviewActiveCallback = callback;
   }
+
   public getSyncScrollManager(): SyncScrollManager {
     return this.syncScrollManager;
   }
+
   public isSyncScrollEnabled(): boolean {
     return this.syncScrollManager.isEnabled();
   }
