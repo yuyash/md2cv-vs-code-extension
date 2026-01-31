@@ -34,9 +34,6 @@ import { logger } from '../client/logger';
 import { withEnvFromFile } from '../client/envLoader';
 import { getMarginSettings } from '../client/cvOptions';
 
-// Paged.js CDN URL
-const PAGED_JS_URL = 'https://unpkg.com/pagedjs/dist/paged.polyfill.js';
-
 // ============================================================================
 // Types
 // ============================================================================
@@ -193,8 +190,11 @@ interface PagedWebviewOptions {
 /**
  * Build webview HTML with Paged.js for accurate page break rendering
  *
- * Approach: Inject CV content directly into the page, then use Paged.js Chunker
- * to paginate the content. The polyfill script auto-runs on DOMContentLoaded.
+ * Strategy: Use Paged.js "renderTo" approach instead of polyfill.
+ * - CV content goes in a hidden container
+ * - Paged.js renders into a visible container
+ * - UI elements are in the HTML from the start (not dynamically created)
+ * - This avoids timing issues with the polyfill approach
  */
 function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): string {
   const { format, paperSize } = options;
@@ -205,7 +205,10 @@ function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): st
   const widthPx = Math.round(dimensions.width * mmToPx);
   const heightPx = Math.round(dimensions.height * mmToPx);
 
-  logger.debug('Building paged webview HTML', { format, paperSize, widthPx, heightPx });
+  // Get margins from settings (default 30mm)
+  const margins = getMarginSettings();
+
+  logger.debug('Building paged webview HTML', { format, paperSize, widthPx, heightPx, margins });
 
   // Extract body class from CV HTML
   const bodyClassMatch = cvHtml.match(/<body[^>]*class="([^"]*)"[^>]*>/i);
@@ -215,34 +218,28 @@ function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): st
   const bodyMatch = cvHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   const bodyContent = bodyMatch ? bodyMatch[1] : cvHtml;
 
-  // Extract styles from CV HTML
+  // Extract styles from CV HTML, but remove @page and body width/padding rules
   const styleMatches = cvHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
-  const cvStyles = styleMatches
+  let cvStyles = styleMatches
     .map((s) => {
       const match = s.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
       return match ? match[1] : '';
     })
     .join('\n');
 
-  // For the polyfill approach, we need to set up @page rules that Paged.js will process
-  // We'll override the md2cv @page rules with our dimensions
-  const pagedOverrideStyles = `
-    @page {
-      size: ${widthPx}px ${heightPx}px;
-      margin: 0;
-    }
-    /* Reset body styles for Paged.js - it handles the layout */
-    body {
-      width: auto !important;
-      min-height: auto !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      background: transparent !important;
-    }
-    html {
-      background: transparent !important;
-    }
-  `;
+  // Remove @page rules and body sizing from CV styles (Paged.js handles this)
+  cvStyles = cvStyles
+    .replace(/@page\s*\{[^}]*\}/g, '')
+    .replace(/body\s*\{[^}]*width:[^}]*\}/g, (match) => {
+      return match
+        .replace(/width:\s*[^;]+;?/g, '')
+        .replace(/min-height:\s*[^;]+;?/g, '')
+        .replace(/padding:\s*[^;]+;?/g, '')
+        .replace(/margin:\s*0\s*auto;?/g, '');
+    });
+
+  // Generate active class for paper size buttons
+  const paperBtnClass = (size: string) => (paperSize === size ? 'paper-btn active' : 'paper-btn');
 
   return `<!DOCTYPE html>
 <html lang="ja">
@@ -250,172 +247,318 @@ function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): st
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style id="cv-styles">${cvStyles}</style>
-<style id="paged-override">${pagedOverrideStyles}</style>
-<style id="ui-styles">
-/* UI container styles - applied after Paged.js renders */
-.pagedjs_pages{display:flex;flex-direction:column;align-items:center;gap:20px;padding:40px;background:#525252;min-height:100vh}
-.pagedjs_page{background:#fff !important;box-shadow:0 2mm 12mm rgba(0,0,0,0.5) !important}
-#loading{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:#fff;padding:20px 40px;border-radius:8px;font-family:system-ui;z-index:2000}
-#debug-panel{position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.85);color:#0f0;padding:10px 15px;border-radius:6px;font-family:'SF Mono',Monaco,monospace;font-size:11px;max-width:400px;max-height:300px;overflow:auto;z-index:1000;display:none}
-#debug-panel.visible{display:block}
-#debug-panel pre{margin:0;white-space:pre-wrap;word-break:break-all}
-#controls{position:fixed;bottom:20px;right:20px;display:flex;gap:6px;background:#2d2d2d;padding:8px 10px;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.4);border:1px solid #404040;z-index:1000}
-.btn{width:28px;height:28px;border:none;background:#3c3c3c;color:#e0e0e0;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold}
-.btn:hover{background:#505050}
-.btn:active{background:#0078d4}
-#zoom-level{min-width:48px;text-align:center;line-height:28px;color:#e0e0e0;font-size:11px;font-family:system-ui}
-#paper-size-controls{position:fixed;bottom:20px;left:20px;display:flex;gap:4px;background:#2d2d2d;padding:6px 8px;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.4);border:1px solid #404040;z-index:1000}
-.paper-btn{padding:4px 8px;border:none;background:#3c3c3c;color:#e0e0e0;border-radius:4px;cursor:pointer;font-size:11px;font-family:system-ui}
-.paper-btn:hover{background:#505050}
-.paper-btn.active{background:#0078d4;color:#fff}
-#page-info{position:fixed;top:20px;right:20px;background:#2d2d2d;padding:6px 12px;border-radius:6px;color:#e0e0e0;font-size:11px;font-family:system-ui;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:1000}
-#zoom-wrapper{transform-origin:top center}
+<style id="paged-config">
+@page {
+  size: ${widthPx}px ${heightPx}px;
+  margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
+}
 </style>
-<script src="${PAGED_JS_URL}"></script>
+<style id="layout-styles">
+html { background: #525252 !important; }
+body { margin: 0; padding: 0; background: transparent !important; }
+#cv-source { display: none; }
+#paged-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px;
+  background: #525252;
+  min-height: 100vh;
+}
+.pagedjs_pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.pagedjs_page {
+  background: #fff !important;
+  box-shadow: 0 2mm 12mm rgba(0,0,0,0.5) !important;
+}
+</style>
+<style id="ui-styles">
+#ui-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 10000; }
+#ui-overlay > * { pointer-events: auto; }
+#loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 20px 40px; border-radius: 8px; font-family: system-ui; z-index: 10001; }
+#loading.hidden { display: none; }
+#controls { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 6px; background: #2d2d2d; padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); border: 1px solid #404040; z-index: 10000; }
+.btn { width: 28px; height: 28px; border: none; background: #3c3c3c; color: #e0e0e0; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; }
+.btn:hover { background: #505050; }
+.btn:active { background: #0078d4; }
+#zoom-level { min-width: 48px; text-align: center; line-height: 28px; color: #e0e0e0; font-size: 11px; font-family: system-ui; }
+#paper-size-controls { position: fixed; bottom: 20px; left: 20px; display: flex; gap: 4px; background: #2d2d2d; padding: 6px 8px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); border: 1px solid #404040; z-index: 10000; }
+.paper-btn { padding: 4px 8px; border: none; background: #3c3c3c; color: #e0e0e0; border-radius: 4px; cursor: pointer; font-size: 11px; font-family: system-ui; }
+.paper-btn:hover { background: #505050; }
+.paper-btn.active { background: #0078d4; color: #fff; }
+#page-info { position: fixed; top: 20px; right: 20px; background: #2d2d2d; padding: 6px 12px; border-radius: 6px; color: #e0e0e0; font-size: 11px; font-family: system-ui; box-shadow: 0 2px 8px rgba(0,0,0,0.3); z-index: 10000; }
+</style>
 </head>
-<body class="${bodyClass}">
-<div id="loading">Rendering pages...</div>
-<div id="debug-panel"><pre id="debug-log"></pre></div>
-<!-- CV Content - Paged.js will process this -->
+<body>
+<!-- UI Overlay - always visible, high z-index -->
+<div id="ui-overlay">
+  <div id="loading">Rendering pages...</div>
+  <div id="page-info">Page: <span id="current-page">1</span> / <span id="page-count">-</span></div>
+  <div id="paper-size-controls">
+    <button class="${paperBtnClass('a3')}" data-size="a3">A3</button>
+    <button class="${paperBtnClass('a4')}" data-size="a4">A4</button>
+    <button class="${paperBtnClass('b4')}" data-size="b4">B4</button>
+    <button class="${paperBtnClass('b5')}" data-size="b5">B5</button>
+    <button class="${paperBtnClass('letter')}" data-size="letter">Letter</button>
+  </div>
+  <div id="controls">
+    <button class="btn" id="btn-out" title="Zoom Out">−</button>
+    <span id="zoom-level">100%</span>
+    <button class="btn" id="btn-in" title="Zoom In">+</button>
+    <button class="btn" id="btn-reset" title="Reset">↺</button>
+    <button class="btn" id="btn-fit" title="Fit Width">⊡</button>
+  </div>
+</div>
+
+<!-- Hidden source content for Paged.js -->
+<div id="cv-source" class="${bodyClass}">
 ${bodyContent}
-<!-- UI Controls -->
-<div id="page-info">Pages: <span id="page-count">-</span></div>
-<div id="paper-size-controls">
-<button class="paper-btn${paperSize === 'a3' ? ' active' : ''}" data-size="a3">A3</button>
-<button class="paper-btn${paperSize === 'a4' ? ' active' : ''}" data-size="a4">A4</button>
-<button class="paper-btn${paperSize === 'b4' ? ' active' : ''}" data-size="b4">B4</button>
-<button class="paper-btn${paperSize === 'b5' ? ' active' : ''}" data-size="b5">B5</button>
-<button class="paper-btn${paperSize === 'letter' ? ' active' : ''}" data-size="letter">Letter</button>
 </div>
-<div id="controls">
-<button class="btn" id="btn-debug" title="Toggle Debug">🐛</button>
-<button class="btn" id="btn-out" title="Zoom Out">−</button>
-<span id="zoom-level">100%</span>
-<button class="btn" id="btn-in" title="Zoom In">+</button>
-<button class="btn" id="btn-reset" title="Reset">↺</button>
-<button class="btn" id="btn-fit" title="Fit Width">⊡</button>
-</div>
+
+<!-- Paged.js renders here -->
+<div id="paged-container"></div>
+
+<!-- Use paged.min.js (NOT polyfill) for manual control -->
 <script>
-(function(){
-const vscode = acquireVsCodeApi();
-const debugPanel = document.getElementById('debug-panel');
-const debugLog = document.getElementById('debug-log');
-let debugVisible = false;
+// Track if Paged.js loaded successfully
+window.pagedJsLoaded = false;
+window.pagedJsError = null;
+</script>
+<script src="https://unpkg.com/pagedjs/dist/paged.min.js" onload="window.pagedJsLoaded=true" onerror="window.pagedJsError='Failed to load script'"></script>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  console.log('[md2cv] Script starting...');
 
-function log(msg, data) {
-  const ts = new Date().toISOString().substr(11, 12);
-  let line = '[' + ts + '] ' + msg;
-  if (data) line += ' ' + JSON.stringify(data);
-  debugLog.textContent += line + '\\n';
-  debugLog.scrollTop = debugLog.scrollHeight;
-  console.log('[md2cv]', msg, data || '');
-}
+  const paperWidth = ${widthPx};
+  const paperHeight = ${heightPx};
+  const marginTop = ${margins.top};
+  const marginRight = ${margins.right};
+  const marginBottom = ${margins.bottom};
+  const marginLeft = ${margins.left};
+  let zoom = 1;
+  const MIN = 0.25, MAX = 4, STEP = 0.05;
 
-document.getElementById('btn-debug').onclick = () => {
-  debugVisible = !debugVisible;
-  debugPanel.classList.toggle('visible', debugVisible);
-};
+  function updateZoom() {
+    const container = document.getElementById('paged-container');
+    if (container) {
+      container.style.transform = 'scale(' + zoom + ')';
+      container.style.transformOrigin = 'top center';
+    }
+    const zoomEl = document.getElementById('zoom-level');
+    if (zoomEl) zoomEl.textContent = Math.round(zoom * 100) + '%';
+  }
 
-const paperWidth = ${widthPx};
-const paperHeight = ${heightPx};
-const format = '${format}';
-const paperSize = '${paperSize}';
+  function setZoom(z) {
+    z = Math.max(MIN, Math.min(MAX, z));
+    if (z === zoom) return;
+    zoom = z;
+    updateZoom();
+    vscode.postMessage({ type: 'zoomChanged', zoomLevel: zoom });
+  }
 
-log('Initializing preview', { format, paperSize, paperWidth, paperHeight });
+  function fitWidth() {
+    const page = document.querySelector('.pagedjs_page');
+    if (!page) {
+      console.log('[md2cv] fitWidth: no page found');
+      return;
+    }
+    const pageWidth = page.offsetWidth || paperWidth;
+    zoom = Math.max(MIN, Math.min(MAX, (window.innerWidth - 80) / pageWidth));
+    updateZoom();
+    window.scrollTo(0, 0);
+    console.log('[md2cv] fitWidth:', { pageWidth, zoom });
+  }
 
-let zoom = 1;
-const MIN = 0.25, MAX = 4, STEP = 0.05;
+  // Track current page based on scroll position
+  let totalPages = 0;
+  function updateCurrentPage() {
+    if (totalPages === 0) return;
+    const pages = document.querySelectorAll('.pagedjs_page');
+    if (pages.length === 0) return;
+    
+    const viewportCenter = window.scrollY + window.innerHeight / 2;
+    let currentPage = 1;
+    
+    pages.forEach((page, index) => {
+      const rect = page.getBoundingClientRect();
+      const pageTop = rect.top + window.scrollY;
+      const pageBottom = pageTop + rect.height;
+      if (viewportCenter >= pageTop && viewportCenter <= pageBottom) {
+        currentPage = index + 1;
+      }
+    });
+    
+    const currentPageEl = document.getElementById('current-page');
+    if (currentPageEl) currentPageEl.textContent = currentPage.toString();
+  }
 
-document.querySelectorAll('.paper-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    log('Paper size change', { size: btn.dataset.size });
-    vscode.postMessage({ type: 'changePaperSize', paperSize: btn.dataset.size });
+  // Throttled scroll handler
+  let scrollTimeout;
+  window.addEventListener('scroll', () => {
+    if (scrollTimeout) return;
+    scrollTimeout = setTimeout(() => {
+      scrollTimeout = null;
+      updateCurrentPage();
+    }, 50);
   });
-});
 
-function updateZoom() {
-  const pagesContainer = document.querySelector('.pagedjs_pages');
-  if (pagesContainer) {
-    pagesContainer.style.transform = 'scale(' + zoom + ')';
-    pagesContainer.style.transformOrigin = 'top center';
+  // Setup UI event listeners
+  document.querySelectorAll('.paper-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      console.log('[md2cv] Paper size change:', btn.dataset.size);
+      vscode.postMessage({ type: 'changePaperSize', paperSize: btn.dataset.size });
+    });
+  });
+
+  document.getElementById('btn-in').onclick = () => setZoom(zoom + STEP);
+  document.getElementById('btn-out').onclick = () => setZoom(zoom - STEP);
+  document.getElementById('btn-reset').onclick = () => { zoom = 1; updateZoom(); };
+  document.getElementById('btn-fit').onclick = fitWidth;
+
+  document.addEventListener('wheel', e => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setZoom(zoom + (e.deltaY > 0 ? -STEP : STEP));
+    }
+  }, { passive: false });
+
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(zoom + STEP); }
+      else if (e.key === '-') { e.preventDefault(); setZoom(zoom - STEP); }
+      else if (e.key === '0') { e.preventDefault(); zoom = 1; updateZoom(); }
+    }
+  });
+
+  window.addEventListener('message', e => {
+    if (e.data.type === 'setZoom') { zoom = e.data.zoomLevel || 1; updateZoom(); }
+  });
+
+  // Use Paged.js Previewer API for manual control
+  async function renderWithPagedJs() {
+    console.log('[md2cv] Starting Paged.js render...', { paperWidth, paperHeight });
+    
+    const source = document.getElementById('cv-source');
+    const container = document.getElementById('paged-container');
+    
+    if (!source || !container) {
+      console.error('[md2cv] Missing source or container');
+      return;
+    }
+
+    try {
+      // Use Paged.js Previewer
+      const Previewer = window.Paged?.Previewer;
+      if (!Previewer) {
+        console.error('[md2cv] Paged.js Previewer not found');
+        document.getElementById('loading').textContent = 'Paged.js not loaded';
+        return;
+      }
+
+      // Get styles from document
+      const cvStyles = document.getElementById('cv-styles');
+      const pagedConfig = document.getElementById('paged-config');
+      
+      // Build stylesheets array for Paged.js
+      // Inline styles must be passed as objects: { [url]: cssText }
+      const stylesheets = [];
+      const baseUrl = window.location.href;
+      
+      if (cvStyles && cvStyles.textContent) {
+        const obj = {};
+        obj[baseUrl + '#cv-styles'] = cvStyles.textContent;
+        stylesheets.push(obj);
+      }
+      
+      if (pagedConfig && pagedConfig.textContent) {
+        const obj = {};
+        obj[baseUrl + '#paged-config'] = pagedConfig.textContent;
+        stylesheets.push(obj);
+        console.log('[md2cv] Page CSS:', pagedConfig.textContent);
+      }
+
+      const paged = new Previewer();
+      
+      // Listen for size event to verify @page rules are processed
+      paged.on('size', (size) => {
+        console.log('[md2cv] Paged.js size event:', size);
+      });
+      
+      const flow = await paged.preview(source.innerHTML, stylesheets, container);
+      
+      // Debug: check actual rendered page size and flow size
+      console.log('[md2cv] Flow size from Paged.js:', flow.size);
+      
+      setTimeout(() => {
+        const page = document.querySelector('.pagedjs_page');
+        if (page) {
+          const style = window.getComputedStyle(page);
+          console.log('[md2cv] Rendered page size:', { 
+            offsetWidth: page.offsetWidth, 
+            offsetHeight: page.offsetHeight,
+            computedWidth: style.width,
+            computedHeight: style.height
+          });
+        }
+      }, 50);
+      
+      const pageCount = flow.total || document.querySelectorAll('.pagedjs_page').length;
+      console.log('[md2cv] Paged.js complete:', { pages: pageCount });
+      
+      totalPages = pageCount;
+      document.getElementById('page-count').textContent = pageCount.toString();
+      document.getElementById('loading').classList.add('hidden');
+      
+      setTimeout(() => {
+        fitWidth();
+        updateCurrentPage();
+      }, 100);
+    } catch (err) {
+      console.error('[md2cv] Paged.js error:', err);
+      document.getElementById('loading').textContent = 'Render error: ' + err.message;
+    }
   }
-  document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
-}
 
-function setZoom(z) {
-  z = Math.max(MIN, Math.min(MAX, z));
-  if (z === zoom) return;
-  zoom = z;
-  updateZoom();
-  vscode.postMessage({ type: 'zoomChanged', zoomLevel: zoom });
-}
-
-function fitWidth() {
-  const page = document.querySelector('.pagedjs_page');
-  if (!page) return;
-  const pageWidth = page.offsetWidth || paperWidth;
-  zoom = Math.max(MIN, Math.min(MAX, (window.innerWidth - 80) / pageWidth));
-  updateZoom();
-  window.scrollTo(0, 0);
-  log('Fit width', { pageWidth, zoom });
-}
-
-document.getElementById('btn-in').onclick = () => setZoom(zoom + STEP);
-document.getElementById('btn-out').onclick = () => setZoom(zoom - STEP);
-document.getElementById('btn-reset').onclick = () => { zoom = 1; updateZoom(); };
-document.getElementById('btn-fit').onclick = fitWidth;
-
-document.addEventListener('wheel', e => {
-  if (e.ctrlKey || e.metaKey) {
-    e.preventDefault();
-    setZoom(zoom + (e.deltaY > 0 ? -STEP : STEP));
+  // Wait for Paged.js to load, then render
+  function waitForPagedJs() {
+    console.log('[md2cv] Checking Paged.js...', { 
+      loaded: window.pagedJsLoaded, 
+      error: window.pagedJsError,
+      Paged: typeof window.Paged,
+      PagedModule: typeof window.PagedModule
+    });
+    
+    if (window.pagedJsError) {
+      console.error('[md2cv] Paged.js load error:', window.pagedJsError);
+      document.getElementById('loading').textContent = 'Failed to load Paged.js';
+      return;
+    }
+    
+    // Check various ways Paged.js might expose itself
+    const PagedLib = window.Paged || window.PagedModule || window.pagedjs;
+    if (PagedLib && PagedLib.Previewer) {
+      window.Paged = PagedLib; // Normalize
+      renderWithPagedJs();
+    } else if (window.pagedJsLoaded) {
+      // Script loaded but Paged not found - check what's available
+      console.log('[md2cv] Script loaded, checking globals:', Object.keys(window).filter(k => k.toLowerCase().includes('paged')));
+      document.getElementById('loading').textContent = 'Paged.js API not found';
+    } else {
+      setTimeout(waitForPagedJs, 100);
+    }
   }
-}, { passive: false });
 
-document.addEventListener('keydown', e => {
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(zoom + STEP); }
-    else if (e.key === '-') { e.preventDefault(); setZoom(zoom - STEP); }
-    else if (e.key === '0') { e.preventDefault(); zoom = 1; updateZoom(); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', waitForPagedJs);
+  } else {
+    waitForPagedJs();
   }
-});
-
-window.addEventListener('message', e => {
-  if (e.data.type === 'setZoom') { zoom = e.data.zoomLevel || 1; updateZoom(); }
-});
-
-// Wait for Paged.js to finish rendering
-log('Waiting for Paged.js...');
-
-// Paged.js polyfill fires this event when done
-window.PagedPolyfill && window.PagedPolyfill.on && window.PagedPolyfill.on('rendered', function(flow) {
-  log('Paged.js rendered (event)', { pages: flow.total });
-  onPagedComplete(flow.total);
-});
-
-// Also check periodically in case event doesn't fire
-let checkCount = 0;
-const checkInterval = setInterval(() => {
-  checkCount++;
-  const pages = document.querySelectorAll('.pagedjs_page');
-  if (pages.length > 0) {
-    clearInterval(checkInterval);
-    log('Paged.js rendered (poll)', { pages: pages.length, checks: checkCount });
-    onPagedComplete(pages.length);
-  } else if (checkCount > 50) {
-    clearInterval(checkInterval);
-    log('Paged.js timeout - no pages found');
-    document.getElementById('loading').textContent = 'Render timeout';
-    document.getElementById('loading').style.background = '#d32f2f';
-  }
-}, 100);
-
-function onPagedComplete(pageTotal) {
-  document.getElementById('page-count').textContent = pageTotal.toString();
-  document.getElementById('loading').style.display = 'none';
-  setTimeout(fitWidth, 100);
-}
-
 })();
 </script>
 </body>
