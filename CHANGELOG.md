@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.0...v1.4.1) (2026-01-31)
+
+
+### Bug Fixes
+
+* **preview:** use Paged.js polyfill approach for proper rendering ([#16](https://github.com/yuyash/md2cv-vs-code-extension/issues/16)) ([537c789](https://github.com/yuyash/md2cv-vs-code-extension/commit/537c789bf77f3b85b1945fe14cc9d92eaeb6d295))
+
 ## [1.4.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.3.1...v1.4.0) (2026-01-31)
 
 
