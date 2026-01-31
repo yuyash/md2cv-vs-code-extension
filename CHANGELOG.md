@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.3.1...v1.4.0) (2026-01-31)
+
+
+### Features
+
+* add configurable page margins setting ([#14](https://github.com/yuyash/md2cv-vs-code-extension/issues/14)) ([3699f48](https://github.com/yuyash/md2cv-vs-code-extension/commit/3699f48e94dcbc25b7375b804749776625e4bea7))
+
 ## [1.3.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.3.0...v1.3.1) (2026-01-31)
 
 
