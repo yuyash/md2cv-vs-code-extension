@@ -26,6 +26,7 @@ import {
 } from '../client/syncScroll';
 import { logger } from '../client/logger';
 import { withEnvFromFile } from '../client/envLoader';
+import { getMarginSettings } from '../client/cvOptions';
 
 // ============================================================================
 // Types
@@ -91,7 +92,7 @@ class HtmlGenerator {
         // Rirekisho is only for Japanese - fall back to CV for English
         if (language === 'en') {
           logger.debug('Rirekisho requested but language is EN, using CV format');
-          return generateEnHtml(cvInput, { paperSize });
+          return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
         }
         return generateRirekishoHTML(cvInput, {
           paperSize,
@@ -104,7 +105,7 @@ class HtmlGenerator {
         // Both is only for Japanese - fall back to CV for English
         if (language === 'en') {
           logger.debug('Both requested but language is EN, using CV format');
-          return generateEnHtml(cvInput, { paperSize });
+          return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
         }
         return this.generateBothFormatsHtml(cvInput, paperSize, photoPath);
 
@@ -112,8 +113,8 @@ class HtmlGenerator {
       default: {
         logger.debug('Detected language for CV', { language });
         return language === 'ja'
-          ? generateJaHtml(cvInput, { paperSize })
-          : generateEnHtml(cvInput, { paperSize });
+          ? generateJaHtml(cvInput, { paperSize, marginMm: getMarginSettings() })
+          : generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
       }
     }
   }
@@ -129,7 +130,10 @@ class HtmlGenerator {
       hideMotivation: false,
       photoDataUri: photoPath ? this.loadPhoto(photoPath) : undefined,
     });
-    const shokumukeirekishoHtml = generateJaHtml(cvInput, { paperSize });
+    const shokumukeirekishoHtml = generateJaHtml(cvInput, {
+      paperSize,
+      marginMm: getMarginSettings(),
+    });
 
     // Get paper dimensions for each format
     const cvDimensions = PAGE_SIZES[paperSize];
@@ -163,17 +167,12 @@ iframe{border:none;box-shadow:0 2mm 8mm rgba(0,0,0,0.3);background:#fff}
 </div>
 <script>
 (function(){
-  // Adjust CV iframe size based on content
+  // Adjust CV iframe height based on content (don't override width/padding - md2cv handles it)
   const cvFrame = document.getElementById('cv-frame');
   cvFrame.onload = function() {
     const doc = cvFrame.contentDocument;
     if (doc && doc.body) {
-      doc.body.style.width = '${cvWidthPx}px';
-      doc.body.style.minWidth = '${cvWidthPx}px';
-      doc.body.style.maxWidth = '${cvWidthPx}px';
-      doc.body.style.margin = '0';
-      doc.body.style.boxSizing = 'border-box';
-      // Adjust height if content is taller
+      // Only adjust height if content is taller than paper
       const contentHeight = doc.body.scrollHeight;
       if (contentHeight > ${cvHeightPx}) {
         cvFrame.style.height = contentHeight + 'px';
@@ -254,6 +253,9 @@ function getPaperDimensions(format: OutputFormat, paperSize: PaperSize): PaperDi
  * The iframe size is set based on the document format and paper size:
  * - CV: Portrait orientation (e.g., A4 = 210mm x 297mm)
  * - Rirekisho: Landscape orientation (e.g., A4 = 297mm x 210mm)
+ *
+ * Important: We don't override md2cv's body styles for CV format.
+ * md2cv already sets correct width and padding (margins) in its CSS.
  */
 function buildWebviewHtml(cvHtml: string, options: WebviewHtmlOptions): string {
   const { format, paperSize } = options;
@@ -359,6 +361,8 @@ function updateDebugInfo(msg) {
 }
 
 // Adjust iframe size based on format and paper size
+// For CV: Don't override body styles - md2cv's CSS handles width and padding (margins)
+// For Rirekisho: Use .spread element dimensions
 function adjustSize() {
   const body = doc.body;
   if (!body) {
@@ -388,19 +392,12 @@ function adjustSize() {
       h = paperHeight;
     }
   } else {
-    // For CV, use paper dimensions (portrait)
-    // Force the body width to match paper width to ensure portrait orientation
+    // For CV, use paper dimensions - md2cv's CSS already handles margins via padding
+    // Just set iframe size to match paper, don't override body styles
     w = paperWidth;
-    
-    // Force body width in pixels to override the mm-based width from md2cv
-    body.style.width = w + 'px';
-    body.style.minWidth = w + 'px';
-    body.style.maxWidth = w + 'px';
-    body.style.margin = '0';
-    body.style.boxSizing = 'border-box';
-    
-    // Wait for reflow and get actual content height
     h = paperHeight;
+    
+    // Allow content to expand height if needed
     const contentHeight = body.scrollHeight;
     if (contentHeight > h) {
       h = contentHeight;
@@ -410,7 +407,7 @@ function adjustSize() {
   frame.style.width = w + 'px';
   frame.style.height = h + 'px';
   
-  updateDebugInfo('Format: ' + format + ', Paper: ' + paperSize + ', Size: ' + w + 'x' + h + 'px, Body: ' + body.style.width);
+  updateDebugInfo('Format: ' + format + ', Paper: ' + paperSize + ', Size: ' + w + 'x' + h + 'px');
   updateZoom();
 }
 

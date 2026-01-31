@@ -77,6 +77,7 @@ phone_number: 090-1234-5678
 | ------------------------------- | ---------- | ----------------------------------------------------------------------------- |
 | `md2cv.defaultFormat`           | `cv`       | デフォルトの CV フォーマット (`cv`, `rirekisho`, `shokumukeirekisho`, `both`) |
 | `md2cv.defaultPaperSize`        | `a4`       | デフォルトの用紙サイズ (`a3`, `a4`, `b4`, `b5`, `letter`)                     |
+| `md2cv.marginMm`                | `30`       | ページ余白（mm）（単一値または `{top, right, bottom, left}`）                 |
 | `md2cv.previewUpdateDelay`      | `300`      | プレビュー更新の遅延（ミリ秒）                                                |
 | `md2cv.enableSyncScroll`        | `true`     | 同期スクロールを有効化                                                        |
 | `md2cv.templateLanguage`        | `en`       | テンプレートの言語 (`en`, `ja`)                                               |

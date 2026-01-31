@@ -19,9 +19,11 @@ import {
   type ParsedCV,
   type PaperSize,
   type OutputFormat,
+  type PageMargins,
 } from 'md2cv';
 import { logger } from './logger';
 import { withEnvFromFile } from './envLoader';
+import { getMarginSettings, type CVGenerationOptions } from './cvOptions';
 
 /**
  * PDF Export Options
@@ -46,9 +48,7 @@ export interface PdfExportResult {
  */
 function generateHtmlForFormat(
   parsedCV: ParsedCV,
-  format: OutputFormat,
-  paperSize: PaperSize,
-  photoPath?: string
+  options: CVGenerationOptions
 ): { html: string; formatName: string }[] {
   const cvInput = {
     metadata: parsedCV.metadata,
@@ -58,6 +58,7 @@ function generateHtmlForFormat(
   const language = detectLanguage(cvInput);
   const isJapanese = language === 'ja';
   const results: { html: string; formatName: string }[] = [];
+  const { format, paperSize, marginMm, photoPath } = options;
 
   // Load photo as data URI if provided
   let photoDataUri: string | undefined;
@@ -85,7 +86,7 @@ function generateHtmlForFormat(
     case 'both':
       // Generate both Japanese formats (CV-JA and Rirekisho)
       results.push({
-        html: generateJaHtml(cvInput, { paperSize }),
+        html: generateJaHtml(cvInput, { paperSize, marginMm }),
         formatName: 'cv',
       });
       results.push({
@@ -103,12 +104,12 @@ function generateHtmlForFormat(
     default:
       if (isJapanese) {
         results.push({
-          html: generateJaHtml(cvInput, { paperSize }),
+          html: generateJaHtml(cvInput, { paperSize, marginMm }),
           formatName: 'cv',
         });
       } else {
         results.push({
-          html: generateEnHtml(cvInput, { paperSize }),
+          html: generateEnHtml(cvInput, { paperSize, marginMm }),
           formatName: 'cv',
         });
       }
@@ -124,7 +125,8 @@ function generateHtmlForFormat(
 async function generatePdfFromHtml(
   html: string,
   paperSize: PaperSize,
-  isRirekisho: boolean
+  isRirekisho: boolean,
+  marginMm: PageMargins
 ): Promise<Buffer> {
   const browser = await puppeteer.launch({
     headless: true,
@@ -140,7 +142,7 @@ async function generatePdfFromHtml(
     let pdfOptions: Parameters<typeof page.pdf>[0];
 
     if (isRirekisho) {
-      // Rirekisho uses landscape orientation
+      // Rirekisho uses landscape orientation with 0mm margins (margins are in the HTML)
       const rirekishoSize = PAGE_SIZES_LANDSCAPE[paperSize];
       await page.setViewport({
         width: Math.round(rirekishoSize.width * 3.78),
@@ -157,11 +159,17 @@ async function generatePdfFromHtml(
         scale: 1,
       };
     } else {
+      // CV uses margins from options (default 30mm, matching md2cv library)
       pdfOptions = {
         width: `${size.width}mm`,
         height: `${size.height}mm`,
         printBackground: true,
-        margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+        margin: {
+          top: `${marginMm.top}mm`,
+          right: `${marginMm.right}mm`,
+          bottom: `${marginMm.bottom}mm`,
+          left: `${marginMm.left}mm`,
+        },
         preferCSSPageSize: true,
       };
     }
@@ -197,10 +205,17 @@ export async function exportToPdf(
   }
 
   const parsedCV = parseResult.value;
-  const paperSize = options.paperSize;
+
+  // Build generation options with settings-based margins
+  const genOptions: CVGenerationOptions = {
+    format: options.format,
+    paperSize: options.paperSize,
+    marginMm: getMarginSettings(),
+    ...(options.photoPath && { photoPath: options.photoPath }),
+  };
 
   // Generate HTML for each format
-  const htmlResults = generateHtmlForFormat(parsedCV, options.format, paperSize, options.photoPath);
+  const htmlResults = generateHtmlForFormat(parsedCV, genOptions);
   logger.debug('Generated HTML for formats', { formatCount: htmlResults.length });
 
   // Determine default output directory and base name
@@ -217,7 +232,7 @@ export async function exportToPdf(
       const suffix = htmlResults.length > 1 ? `_${formatName}` : '';
       const defaultFileName = `${baseName}${suffix}.pdf`;
 
-      logger.debug('Generating PDF', { formatName, isRirekisho, paperSize });
+      logger.debug('Generating PDF', { formatName, isRirekisho, paperSize: genOptions.paperSize });
 
       // Show save dialog
       const saveUri = await vscode.window.showSaveDialog({
@@ -243,7 +258,12 @@ export async function exportToPdf(
       }
 
       const outputPath = saveUri.fsPath;
-      const pdfBuffer = await generatePdfFromHtml(html, paperSize, isRirekisho);
+      const pdfBuffer = await generatePdfFromHtml(
+        html,
+        genOptions.paperSize,
+        isRirekisho,
+        genOptions.marginMm
+      );
       fs.writeFileSync(outputPath, pdfBuffer);
       outputPaths.push(outputPath);
       logger.info('PDF saved', { outputPath });
