@@ -76,6 +76,7 @@ For detailed Markdown format documentation, see the [md2cv documentation](https:
 | ------------------------------- | ------- | ------------------------------------------------------------------ |
 | `md2cv.defaultFormat`           | `cv`    | Default CV format (`cv`, `rirekisho`, `shokumukeirekisho`, `both`) |
 | `md2cv.defaultPaperSize`        | `a4`    | Default paper size (`a3`, `a4`, `b4`, `b5`, `letter`)              |
+| `md2cv.marginMm`                | `30`    | Page margins in mm (single value or `{top, right, bottom, left}`)  |
 | `md2cv.previewUpdateDelay`      | `300`   | Preview update delay in milliseconds                               |
 | `md2cv.enableSyncScroll`        | `true`  | Enable synchronized scrolling                                      |
 | `md2cv.templateLanguage`        | `en`    | Template language (`en`, `ja`)                                     |

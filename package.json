@@ -178,6 +178,47 @@
             "type": "string"
           },
           "description": "%config.cvFilePatterns%"
+        },
+        "md2cv.marginMm": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Single margin value applied to all sides (in mm)"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "top": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Top margin in mm"
+                },
+                "right": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Right margin in mm"
+                },
+                "bottom": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Bottom margin in mm"
+                },
+                "left": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Left margin in mm"
+                }
+              }
+            }
+          ],
+          "default": 30,
+          "description": "%config.marginMm%"
         }
       }
     },
@@ -326,7 +367,7 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
-    "md2cv": "^1.4.0",
+    "md2cv": "^1.6.0",
     "puppeteer": "^24.34.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
