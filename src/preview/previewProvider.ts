@@ -7,6 +7,8 @@
  * - Direct HTML rendering (no iframe) for better Paged.js integration
  * - Zoom/pan controls work with paginated pages
  * - PDF export uses same HTML generation for consistency
+ * - Incremental content updates preserve scroll position
+ * - Sync scroll synchronizes editor and preview scroll positions
  */
 
 import * as vscode from 'vscode';
@@ -35,6 +37,26 @@ import { withEnvFromFile } from '../client/envLoader';
 import { getMarginSettings } from '../client/cvOptions';
 
 // ============================================================================
+// Content Update Message Types
+// ============================================================================
+
+/**
+ * Message to update preview content without full HTML replacement
+ * This preserves scroll position during content updates
+ */
+export interface ContentUpdateMessage {
+  type: 'updateContent';
+  /** The new CV body content (inner HTML) */
+  bodyContent: string;
+  /** CSS class for the body element */
+  bodyClass: string;
+  /** CV styles to apply */
+  cvStyles: string;
+  /** Page configuration CSS */
+  pageConfig: string;
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -44,6 +66,8 @@ export interface PreviewState {
   paperSize: PaperSize;
   photoPath?: string;
   zoomLevel: number;
+  /** Whether the webview has been initialized with full HTML */
+  initialized: boolean;
 }
 
 // ============================================================================
@@ -185,6 +209,67 @@ iframe{border:none;box-shadow:0 2mm 8mm rgba(0,0,0,0.3);background:#fff}
 interface PagedWebviewOptions {
   format: OutputFormat;
   paperSize: PaperSize;
+}
+
+/**
+ * Extracted CV content for incremental updates
+ */
+export interface ExtractedCvContent {
+  bodyContent: string;
+  bodyClass: string;
+  cvStyles: string;
+}
+
+/**
+ * Extract content components from CV HTML for incremental updates
+ */
+export function extractCvContent(cvHtml: string): ExtractedCvContent {
+  // Extract body class from CV HTML
+  const bodyClassMatch = cvHtml.match(/<body[^>]*class="([^"]*)"[^>]*>/i);
+  const bodyClass = bodyClassMatch ? bodyClassMatch[1] : '';
+
+  // Extract content from CV HTML (between <body> tags)
+  const bodyMatch = cvHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  const bodyContent = bodyMatch ? bodyMatch[1] : cvHtml;
+
+  // Extract styles from CV HTML, but remove @page and body width/padding rules
+  const styleMatches = cvHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
+  let cvStyles = styleMatches
+    .map((s) => {
+      const match = s.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+      return match ? match[1] : '';
+    })
+    .join('\n');
+
+  // Remove @page rules and body sizing from CV styles (Paged.js handles this)
+  cvStyles = cvStyles
+    .replace(/@page\s*\{[^}]*\}/g, '')
+    .replace(/body\s*\{[^}]*width:[^}]*\}/g, (match) => {
+      return match
+        .replace(/width:\s*[^;]+;?/g, '')
+        .replace(/min-height:\s*[^;]+;?/g, '')
+        .replace(/padding:\s*[^;]+;?/g, '')
+        .replace(/margin:\s*0\s*auto;?/g, '');
+    });
+
+  return { bodyContent, bodyClass, cvStyles };
+}
+
+/**
+ * Generate page configuration CSS for Paged.js
+ */
+export function generatePageConfig(paperSize: PaperSize, format: OutputFormat): string {
+  const isRirekisho = format === 'rirekisho';
+  const dimensions = isRirekisho ? PAGE_SIZES_LANDSCAPE[paperSize] : PAGE_SIZES[paperSize];
+  const mmToPx = 96 / 25.4;
+  const widthPx = Math.round(dimensions.width * mmToPx);
+  const heightPx = Math.round(dimensions.height * mmToPx);
+  const margins = getMarginSettings();
+
+  return `@page {
+  size: ${widthPx}px ${heightPx}px;
+  margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
+}`;
 }
 
 /**
@@ -400,13 +485,185 @@ window.pagedJsError = null;
 
   // Throttled scroll handler
   let scrollTimeout;
+  
+  // Scroll position preservation for content updates
+  let savedScrollPosition = { x: 0, y: 0 };
+  let isUpdatingContent = false;
+
+  function saveScrollPosition() {
+    savedScrollPosition = { x: window.scrollX, y: window.scrollY };
+    console.log('[md2cv] Saved scroll position:', savedScrollPosition);
+  }
+
+  function restoreScrollPosition() {
+    if (savedScrollPosition.y > 0 || savedScrollPosition.x > 0) {
+      console.log('[md2cv] Restoring scroll position:', savedScrollPosition);
+      window.scrollTo(savedScrollPosition.x, savedScrollPosition.y);
+    }
+  }
+
+  // Sync scroll state
+  let syncScrollEnabled = true;
+  let isScrollingFromEditor = false;
+  let syncScrollTimeout = null;
+  // Map of section ID to { element, top, bottom } for scroll sync
+  let sectionElements = {};
+  // Ordered list of section IDs for position calculation
+  let sectionOrder = [];
+
+  function initSectionElements() {
+    sectionElements = {};
+    sectionOrder = [];
+    
+    // After Paged.js renders, content is inside .pagedjs_page_content
+    // Look for .cv-section elements with class pattern cv-section--{id}
+    // The HTML structure is: <section class="cv-section cv-section--summary">
+    const container = document.getElementById('paged-container');
+    if (!container) {
+      console.log('[md2cv] No paged-container found');
+      return;
+    }
+
+    // Find all cv-section elements in the rendered content
+    const sections = container.querySelectorAll('.cv-section');
+    console.log('[md2cv] Found cv-section elements:', sections.length);
+    
+    sections.forEach(section => {
+      // Extract section ID from class name (e.g., cv-section--summary -> summary)
+      const classList = Array.from(section.classList);
+      const sectionClass = classList.find(c => c.startsWith('cv-section--'));
+      if (sectionClass) {
+        const id = sectionClass.replace('cv-section--', '');
+        // Store element reference - positions will be calculated on demand
+        sectionElements[id] = { element: section };
+        sectionOrder.push(id);
+      }
+    });
+
+    // Also look for h2 elements as fallback (they contain section titles)
+    if (Object.keys(sectionElements).length === 0) {
+      container.querySelectorAll('h2').forEach(h2 => {
+        const text = h2.textContent?.trim();
+        if (text) {
+          // Convert title to ID format (lowercase, replace spaces with hyphens)
+          const id = text.toLowerCase().replace(/\\s+/g, '-');
+          sectionElements[id] = { element: h2 };
+          sectionOrder.push(id);
+        }
+      });
+    }
+
+    console.log('[md2cv] Initialized section elements:', Object.keys(sectionElements));
+  }
+
+  // Get current position of a section element (recalculates from DOM)
+  function getSectionPosition(sectionData) {
+    if (!sectionData || !sectionData.element) return null;
+    const rect = sectionData.element.getBoundingClientRect();
+    return {
+      top: rect.top + window.scrollY,
+      bottom: rect.bottom + window.scrollY
+    };
+  }
+
+  function scrollToSection(sectionId, positionInSection) {
+    const sectionData = sectionElements[sectionId];
+    const pos = getSectionPosition(sectionData);
+    if (pos) {
+      isScrollingFromEditor = true;
+      
+      let targetY = pos.top;
+      
+      // Calculate position within section if provided
+      if (typeof positionInSection === 'number' && positionInSection > 0) {
+        const sectionHeight = pos.bottom - pos.top;
+        targetY += sectionHeight * positionInSection;
+      }
+      
+      window.scrollTo({
+        top: Math.max(0, targetY - 20),
+        behavior: 'smooth'
+      });
+      
+      setTimeout(() => {
+        isScrollingFromEditor = false;
+      }, 500);
+    } else {
+      // Fallback to percentage-based scrolling if section not found
+      console.log('[md2cv] Section not found, using position fallback:', sectionId);
+      if (typeof positionInSection === 'number') {
+        scrollToPosition(positionInSection);
+      }
+    }
+  }
+
+  function scrollToPosition(position) {
+    isScrollingFromEditor = true;
+    
+    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    const targetY = maxScroll * Math.max(0, Math.min(1, position));
+    
+    window.scrollTo({
+      top: targetY,
+      behavior: 'smooth'
+    });
+    
+    setTimeout(() => {
+      isScrollingFromEditor = false;
+    }, 500);
+  }
+
+  function handlePreviewScroll() {
+    if (!syncScrollEnabled || isScrollingFromEditor || isUpdatingContent) {
+      return;
+    }
+
+    if (syncScrollTimeout) {
+      clearTimeout(syncScrollTimeout);
+    }
+
+    syncScrollTimeout = setTimeout(() => {
+      const viewportTop = window.scrollY + 50;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollPosition = maxScroll > 0 ? window.scrollY / maxScroll : 0;
+
+      // Find the section that contains the current viewport position
+      let visibleSection = null;
+      let positionInSection = 0;
+
+      for (const id of sectionOrder) {
+        const sectionData = sectionElements[id];
+        const pos = getSectionPosition(sectionData);
+        if (pos && pos.top <= viewportTop) {
+          visibleSection = id;
+          // Calculate position within section
+          const sectionHeight = pos.bottom - pos.top;
+          if (sectionHeight > 0) {
+            positionInSection = Math.max(0, Math.min(1, (viewportTop - pos.top) / sectionHeight));
+          }
+        }
+      }
+
+      vscode.postMessage({
+        type: 'scroll',
+        sectionId: visibleSection,
+        position: scrollPosition,
+        positionInSection: positionInSection
+      });
+    }, 100);
+  }
+
   window.addEventListener('scroll', () => {
+    // Update current page indicator
     if (scrollTimeout) return;
     scrollTimeout = setTimeout(() => {
       scrollTimeout = null;
       updateCurrentPage();
     }, 50);
-  });
+
+    // Handle sync scroll (preview → editor)
+    handlePreviewScroll();
+  }, { passive: true });
 
   // Setup UI event listeners
   document.querySelectorAll('.paper-btn').forEach(btn => {
@@ -437,7 +694,66 @@ window.pagedJsError = null;
   });
 
   window.addEventListener('message', e => {
-    if (e.data.type === 'setZoom') { zoom = e.data.zoomLevel || 1; updateZoom(); }
+    const message = e.data;
+    switch (message.type) {
+      case 'setZoom':
+        zoom = message.zoomLevel || 1;
+        updateZoom();
+        break;
+
+      case 'updateContent':
+        // Incremental content update - preserves scroll position
+        console.log('[md2cv] Received content update');
+        isUpdatingContent = true;
+        saveScrollPosition();
+        
+        // Update styles
+        const cvStylesEl = document.getElementById('cv-styles');
+        if (cvStylesEl && message.cvStyles) {
+          cvStylesEl.textContent = message.cvStyles;
+        }
+        
+        const pagedConfigEl = document.getElementById('paged-config');
+        if (pagedConfigEl && message.pageConfig) {
+          pagedConfigEl.textContent = message.pageConfig;
+        }
+        
+        // Update source content
+        const source = document.getElementById('cv-source');
+        if (source) {
+          source.className = message.bodyClass || '';
+          source.innerHTML = message.bodyContent;
+        }
+        
+        // Re-render with Paged.js
+        renderWithPagedJs().then(() => {
+          restoreScrollPosition();
+          initSectionElements();
+          isUpdatingContent = false;
+        });
+        break;
+
+      case 'scrollToSection':
+        scrollToSection(message.sectionId, message.position);
+        break;
+
+      case 'scrollToPosition':
+        scrollToPosition(message.position);
+        break;
+
+      case 'scrollToLine':
+        scrollToPosition(message.line / (document.body.scrollHeight || 1));
+        break;
+
+      case 'setSyncScrollEnabled':
+        syncScrollEnabled = message.enabled;
+        console.log('[md2cv] Sync scroll enabled:', syncScrollEnabled);
+        break;
+
+      case 'updateSections':
+        initSectionElements();
+        break;
+    }
   });
 
   // Use Paged.js Previewer API for manual control
@@ -452,12 +768,17 @@ window.pagedJsError = null;
       return;
     }
 
+    // Clear previous render
+    container.innerHTML = '';
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+
     try {
       // Use Paged.js Previewer
       const Previewer = window.Paged?.Previewer;
       if (!Previewer) {
         console.error('[md2cv] Paged.js Previewer not found');
-        document.getElementById('loading').textContent = 'Paged.js not loaded';
+        if (loadingEl) loadingEl.textContent = 'Paged.js not loaded';
         return;
       }
 
@@ -515,10 +836,10 @@ window.pagedJsError = null;
       document.getElementById('page-count').textContent = pageCount.toString();
       document.getElementById('loading').classList.add('hidden');
       
-      setTimeout(() => {
-        fitWidth();
-        updateCurrentPage();
-      }, 100);
+      // Initialize section elements after render for sync scroll
+      initSectionElements();
+      
+      return flow;
     } catch (err) {
       console.error('[md2cv] Paged.js error:', err);
       document.getElementById('loading').textContent = 'Render error: ' + err.message;
@@ -544,7 +865,12 @@ window.pagedJsError = null;
     const PagedLib = window.Paged || window.PagedModule || window.pagedjs;
     if (PagedLib && PagedLib.Previewer) {
       window.Paged = PagedLib; // Normalize
-      renderWithPagedJs();
+      renderWithPagedJs().then(() => {
+        setTimeout(() => {
+          fitWidth();
+          updateCurrentPage();
+        }, 100);
+      });
     } else if (window.pagedJsLoaded) {
       // Script loaded but Paged not found - check what's available
       console.log('[md2cv] Script loaded, checking globals:', Object.keys(window).filter(k => k.toLowerCase().includes('paged')));
@@ -578,6 +904,7 @@ export class PreviewProvider implements vscode.Disposable {
     format: 'cv',
     paperSize: 'a4',
     zoomLevel: 1,
+    initialized: false,
   };
   private debounceTimer: ReturnType<typeof setTimeout> | undefined;
   private disposables: vscode.Disposable[] = [];
@@ -633,6 +960,7 @@ export class PreviewProvider implements vscode.Disposable {
         () => {
           logger.debug('Preview panel disposed');
           this.panel = undefined;
+          this.state.initialized = false;
           vscode.commands.executeCommand('setContext', 'md2cv.previewActive', false);
         },
         null,
@@ -687,6 +1015,7 @@ export class PreviewProvider implements vscode.Disposable {
       format: this.state.format,
       paperSize: this.state.paperSize,
       hasPhoto: !!this.state.photoPath,
+      initialized: this.state.initialized,
     });
 
     try {
@@ -707,12 +1036,31 @@ export class PreviewProvider implements vscode.Disposable {
         cvHtml.includes('id="rirekisho-frame"');
 
       if (isBothFormatHtml) {
+        // Both format uses iframes, always do full HTML replacement
         this.panel.webview.html = cvHtml;
+        this.state.initialized = false;
+      } else if (this.state.initialized) {
+        // Use incremental update to preserve scroll position
+        const extracted = extractCvContent(cvHtml);
+        const pageConfig = generatePageConfig(
+          this.state.paperSize,
+          this.state.format === 'both' ? 'cv' : this.state.format
+        );
+
+        this.panel.webview.postMessage({
+          type: 'updateContent',
+          bodyContent: extracted.bodyContent,
+          bodyClass: extracted.bodyClass,
+          cvStyles: extracted.cvStyles,
+          pageConfig: pageConfig,
+        });
       } else {
+        // Initial render - full HTML
         this.panel.webview.html = buildPagedWebviewHtml(cvHtml, {
           format: this.state.format === 'both' ? 'cv' : this.state.format,
           paperSize: this.state.paperSize,
         });
+        this.state.initialized = true;
       }
 
       logger.debug('Preview rendered successfully');
@@ -768,7 +1116,11 @@ export class PreviewProvider implements vscode.Disposable {
 
   public setFormat(format: OutputFormat): void {
     logger.info('Format changed', { from: this.state.format, to: format });
-    this.state.format = format;
+    if (this.state.format !== format) {
+      this.state.format = format;
+      // Reset initialized state to force full re-render with new format
+      this.state.initialized = false;
+    }
   }
 
   public getFormat(): OutputFormat {
@@ -777,7 +1129,11 @@ export class PreviewProvider implements vscode.Disposable {
 
   public setPaperSize(paperSize: PaperSize): void {
     logger.info('Paper size changed', { from: this.state.paperSize, to: paperSize });
-    this.state.paperSize = paperSize;
+    if (this.state.paperSize !== paperSize) {
+      this.state.paperSize = paperSize;
+      // Reset initialized state to force full re-render with new paper size
+      this.state.initialized = false;
+    }
   }
 
   public getPaperSize(): PaperSize {
