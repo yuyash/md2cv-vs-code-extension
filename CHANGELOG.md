@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.4](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.3...v1.4.4) (2026-02-01)
+
+
+### Bug Fixes
+
+* prevent editor scroll during markdown update ([#23](https://github.com/yuyash/md2cv-vs-code-extension/issues/23)) ([228f487](https://github.com/yuyash/md2cv-vs-code-extension/commit/228f48741be074718adf3c89185de466737d08b0))
+
 ## [1.4.3](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.2...v1.4.3) (2026-02-01)
 
 
