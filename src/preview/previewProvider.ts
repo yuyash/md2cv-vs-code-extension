@@ -264,8 +264,17 @@ export function generatePageConfig(paperSize: PaperSize, format: OutputFormat): 
   const mmToPx = 96 / 25.4;
   const widthPx = Math.round(dimensions.width * mmToPx);
   const heightPx = Math.round(dimensions.height * mmToPx);
-  const margins = getMarginSettings();
 
+  // Rirekisho handles its own margins internally via .spread class
+  // So we set page margins to 0 for rirekisho format
+  if (isRirekisho) {
+    return `@page {
+  size: ${widthPx}px ${heightPx}px;
+  margin: 0;
+}`;
+  }
+
+  const margins = getMarginSettings();
   return `@page {
   size: ${widthPx}px ${heightPx}px;
   margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
@@ -290,8 +299,9 @@ function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): st
   const widthPx = Math.round(dimensions.width * mmToPx);
   const heightPx = Math.round(dimensions.height * mmToPx);
 
-  // Get margins from settings (default 30mm)
-  const margins = getMarginSettings();
+  // Rirekisho handles its own margins internally via .spread class
+  // So we set page margins to 0 for rirekisho format
+  const margins = isRirekisho ? { top: 0, right: 0, bottom: 0, left: 0 } : getMarginSettings();
 
   logger.debug('Building paged webview HTML', { format, paperSize, widthPx, heightPx, margins });
 

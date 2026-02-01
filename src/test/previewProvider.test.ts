@@ -232,10 +232,18 @@ body { width: 210mm; min-height: 297mm; padding: 20mm; margin: 0 auto; color: bl
       }
     });
 
-    it('should include margin settings', () => {
+    it('should include margin settings for CV format', () => {
       const config = generatePageConfig('a4', 'cv');
 
       expect(config).toContain('30mm');
+    });
+
+    it('should use zero margins for rirekisho format', () => {
+      const config = generatePageConfig('a4', 'rirekisho');
+
+      // Rirekisho handles its own margins internally
+      expect(config).toContain('margin: 0');
+      expect(config).not.toContain('30mm');
     });
   });
 });
