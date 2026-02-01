@@ -758,7 +758,11 @@ window.pagedJsError = null;
         renderWithPagedJs().then(() => {
           restoreScrollPosition();
           initSectionElements();
-          isUpdatingContent = false;
+          // Keep isUpdatingContent true for a bit longer to prevent
+          // scroll events from triggering editor scroll during restore
+          setTimeout(() => {
+            isUpdatingContent = false;
+          }, 200);
         });
         break;
 
@@ -1026,6 +1030,9 @@ export class PreviewProvider implements vscode.Disposable {
 
     this.currentDocument = document;
 
+    // Mark the start of update to prevent scroll sync
+    this.syncScrollManager.beginUpdate();
+
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
 
     const delay = vscode.workspace.getConfiguration('md2cv').get<number>('previewUpdateDelay', 300);
@@ -1034,6 +1041,8 @@ export class PreviewProvider implements vscode.Disposable {
       this.syncScrollManager.updateSectionPositions(document.getText());
       this.render(document);
       this.panel?.webview.postMessage({ type: 'updateSections' });
+      // Mark the end of update (scroll sync re-enabled after delay)
+      this.syncScrollManager.endUpdate();
     }, delay);
   }
 

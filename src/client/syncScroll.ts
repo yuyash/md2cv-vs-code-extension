@@ -175,6 +175,8 @@ export class SyncScrollManager implements vscode.Disposable {
   private _scrollThrottleTimer: ReturnType<typeof setTimeout> | undefined;
   private _onScrollToPreview: ((message: ScrollSyncMessage) => void) | undefined;
   private _onScrollToEditor: ((line: number) => void) | undefined;
+  private _isUpdating: boolean = false;
+  private _updateTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
     // Load initial enabled state from configuration
@@ -211,6 +213,35 @@ export class SyncScrollManager implements vscode.Disposable {
   }
 
   /**
+   * Mark the start of a content update
+   * This prevents scroll sync during the update
+   */
+  public beginUpdate(): void {
+    this._isUpdating = true;
+    if (this._updateTimer) {
+      clearTimeout(this._updateTimer);
+    }
+  }
+
+  /**
+   * Mark the end of a content update
+   * Scroll sync is re-enabled after a delay to allow preview to settle
+   */
+  public endUpdate(): void {
+    // Clear updating flag after a delay to allow preview to settle
+    this._updateTimer = setTimeout(() => {
+      this._isUpdating = false;
+    }, 500);
+  }
+
+  /**
+   * Check if currently updating (prevents scroll sync)
+   */
+  public isUpdating(): boolean {
+    return this._isUpdating;
+  }
+
+  /**
    * Get current section positions
    */
   public getSectionPositions(): SectionPosition[] {
@@ -241,7 +272,7 @@ export class SyncScrollManager implements vscode.Disposable {
     visibleRanges: readonly vscode.Range[],
     document: vscode.TextDocument
   ): void {
-    if (!this._enabled || !this._onScrollToPreview) {
+    if (!this._enabled || !this._onScrollToPreview || this._isUpdating) {
       return;
     }
 
@@ -258,8 +289,8 @@ export class SyncScrollManager implements vscode.Disposable {
     }
 
     this._scrollThrottleTimer = setTimeout(() => {
-      // Skip if the line hasn't changed significantly
-      if (Math.abs(firstVisibleLine - this._lastScrollLine) < 2) {
+      // Skip if updating or if the line hasn't changed significantly
+      if (this._isUpdating || Math.abs(firstVisibleLine - this._lastScrollLine) < 2) {
         return;
       }
 
@@ -296,7 +327,7 @@ export class SyncScrollManager implements vscode.Disposable {
    * Requirements: 13.2
    */
   public handleWebviewScroll(message: WebviewScrollMessage): void {
-    if (!this._enabled || !this._onScrollToEditor) {
+    if (!this._enabled || !this._onScrollToEditor || this._isUpdating) {
       return;
     }
 
@@ -334,6 +365,9 @@ export class SyncScrollManager implements vscode.Disposable {
   public dispose(): void {
     if (this._scrollThrottleTimer) {
       clearTimeout(this._scrollThrottleTimer);
+    }
+    if (this._updateTimer) {
+      clearTimeout(this._updateTimer);
     }
 
     while (this._disposables.length) {
