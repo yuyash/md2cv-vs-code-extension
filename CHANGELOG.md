@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.3](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.2...v1.4.3) (2026-02-01)
+
+
+### Bug Fixes
+
+* rirekisho preview centering and margins ([#21](https://github.com/yuyash/md2cv-vs-code-extension/issues/21)) ([2dec07b](https://github.com/yuyash/md2cv-vs-code-extension/commit/2dec07b0500f0825fba8042a04d82e0a415518b3))
+
 ## [1.4.2](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.1...v1.4.2) (2026-02-01)
 
 
