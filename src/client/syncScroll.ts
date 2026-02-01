@@ -44,6 +44,8 @@ export interface WebviewScrollMessage {
   sectionId?: string;
   /** Scroll position as percentage (0-1) */
   position?: number;
+  /** Position within the current section (0-1) */
+  positionInSection?: number;
 }
 
 /**
@@ -298,16 +300,31 @@ export class SyncScrollManager implements vscode.Disposable {
       return;
     }
 
+    // Try section-based scrolling first
     if (message.sectionId) {
-      // Scroll to section
       const line = findLineForSection(this._sectionPositions, message.sectionId);
       if (line !== null) {
-        this._onScrollToEditor(line);
+        // If we have position within section, calculate more precise line
+        const section = this._sectionPositions.find((s) => s.id === message.sectionId);
+        if (section && typeof message.positionInSection === 'number') {
+          const sectionLines = section.endLine - section.startLine;
+          const lineOffset = Math.floor(sectionLines * message.positionInSection);
+          this._onScrollToEditor(section.startLine + lineOffset);
+        } else {
+          this._onScrollToEditor(line);
+        }
+        return;
       }
-    } else if (typeof message.position === 'number') {
-      // Scroll to percentage position
-      // This would need the total line count from the document
-      // For now, we'll rely on section-based scrolling
+    }
+
+    // Fall back to percentage-based scrolling
+    if (typeof message.position === 'number' && this._sectionPositions.length > 0) {
+      const lastSection = this._sectionPositions[this._sectionPositions.length - 1];
+      const totalLines = lastSection.endLine;
+      if (totalLines > 0) {
+        const targetLine = Math.floor(totalLines * message.position);
+        this._onScrollToEditor(targetLine);
+      }
     }
   }
 
@@ -326,158 +343,4 @@ export class SyncScrollManager implements vscode.Disposable {
       }
     }
   }
-}
-
-/**
- * Generate JavaScript code for webview scroll handling
- * This code is injected into the preview webview
- */
-export function generateWebviewScrollScript(): string {
-  return `
-    <script>
-      (function() {
-        const vscode = acquireVsCodeApi();
-        let syncScrollEnabled = true;
-        let isScrollingFromEditor = false;
-        let scrollTimeout = null;
-
-        // Section elements cache
-        let sectionElements = {};
-
-        // Initialize section elements
-        function initSectionElements() {
-          sectionElements = {};
-          // Find all section headers (h2, h3) and data-section elements
-          document.querySelectorAll('[data-section-id], h2, h3').forEach(el => {
-            const id = el.getAttribute('data-section-id') || el.id || el.textContent?.toLowerCase().replace(/\\s+/g, '-');
-            if (id) {
-              sectionElements[id] = el;
-            }
-          });
-        }
-
-        // Scroll to a specific section
-        function scrollToSection(sectionId, positionInSection) {
-          const element = sectionElements[sectionId];
-          if (element) {
-            isScrollingFromEditor = true;
-            
-            // Calculate the target scroll position
-            const elementRect = element.getBoundingClientRect();
-            const elementTop = elementRect.top + window.scrollY;
-            
-            // If positionInSection is provided, adjust the scroll position
-            let targetY = elementTop;
-            if (typeof positionInSection === 'number' && positionInSection > 0) {
-              // Find the next section to calculate the section height
-              const nextSection = element.nextElementSibling;
-              if (nextSection) {
-                const nextRect = nextSection.getBoundingClientRect();
-                const sectionHeight = nextRect.top - elementRect.top;
-                targetY += sectionHeight * positionInSection;
-              }
-            }
-            
-            window.scrollTo({
-              top: targetY - 20, // 20px offset for better visibility
-              behavior: 'smooth'
-            });
-            
-            // Reset flag after scroll completes
-            setTimeout(() => {
-              isScrollingFromEditor = false;
-            }, 500);
-          }
-        }
-
-        // Scroll to a percentage position
-        function scrollToPosition(position) {
-          isScrollingFromEditor = true;
-          
-          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-          const targetY = maxScroll * position;
-          
-          window.scrollTo({
-            top: targetY,
-            behavior: 'smooth'
-          });
-          
-          setTimeout(() => {
-            isScrollingFromEditor = false;
-          }, 500);
-        }
-
-        // Handle scroll events from the preview
-        function handlePreviewScroll() {
-          if (!syncScrollEnabled || isScrollingFromEditor) {
-            return;
-          }
-
-          // Throttle scroll events
-          if (scrollTimeout) {
-            clearTimeout(scrollTimeout);
-          }
-
-          scrollTimeout = setTimeout(() => {
-            // Find the currently visible section
-            let visibleSection = null;
-            const viewportTop = window.scrollY + 50; // 50px offset
-
-            for (const [id, element] of Object.entries(sectionElements)) {
-              const rect = element.getBoundingClientRect();
-              const elementTop = rect.top + window.scrollY;
-              
-              if (elementTop <= viewportTop) {
-                visibleSection = id;
-              }
-            }
-
-            if (visibleSection) {
-              vscode.postMessage({
-                type: 'scroll',
-                sectionId: visibleSection,
-                position: window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)
-              });
-            }
-          }, 100);
-        }
-
-        // Handle messages from the extension
-        window.addEventListener('message', event => {
-          const message = event.data;
-          
-          switch (message.type) {
-            case 'scrollToSection':
-              scrollToSection(message.sectionId, message.position);
-              break;
-            case 'scrollToPosition':
-              scrollToPosition(message.position);
-              break;
-            case 'scrollToLine':
-              // Line-based scrolling (fallback)
-              scrollToPosition(message.line / (document.body.scrollHeight || 1));
-              break;
-            case 'setSyncScrollEnabled':
-              syncScrollEnabled = message.enabled;
-              break;
-            case 'updateSections':
-              initSectionElements();
-              break;
-          }
-        });
-
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', () => {
-          initSectionElements();
-          window.addEventListener('scroll', handlePreviewScroll, { passive: true });
-        });
-
-        // Also initialize if DOM is already loaded
-        if (document.readyState !== 'loading') {
-          initSectionElements();
-          window.addEventListener('scroll', handlePreviewScroll, { passive: true });
-        }
-      })();
-    </script>
-  `;
 }
