@@ -264,12 +264,61 @@ export function generatePageConfig(paperSize: PaperSize, format: OutputFormat): 
   const mmToPx = 96 / 25.4;
   const widthPx = Math.round(dimensions.width * mmToPx);
   const heightPx = Math.round(dimensions.height * mmToPx);
-  const margins = getMarginSettings();
 
+  // Rirekisho handles its own margins internally via .spread class
+  // So we set page margins to 0 for rirekisho format
+  if (isRirekisho) {
+    return `@page {
+  size: ${widthPx}px ${heightPx}px;
+  margin: 0;
+}`;
+  }
+
+  const margins = getMarginSettings();
   return `@page {
   size: ${widthPx}px ${heightPx}px;
   margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
 }`;
+}
+
+/**
+ * Generate layout styles for the preview container
+ * These styles ensure proper centering of pages in the preview
+ */
+export function generateLayoutStyles(): string {
+  return `
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+html, body { 
+  margin: 0; 
+  padding: 0; 
+  background: #525252 !important;
+  width: 100%;
+  overflow-x: hidden;
+}
+#cv-source { display: none; }
+#paged-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 0;
+  background: #525252;
+  min-height: 100vh;
+  width: 100%;
+}
+.pagedjs_pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.pagedjs_page {
+  background: #fff !important;
+  box-shadow: 0 2mm 12mm rgba(0,0,0,0.5) !important;
+}
+`.trim();
 }
 
 /**
@@ -290,8 +339,9 @@ function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): st
   const widthPx = Math.round(dimensions.width * mmToPx);
   const heightPx = Math.round(dimensions.height * mmToPx);
 
-  // Get margins from settings (default 30mm)
-  const margins = getMarginSettings();
+  // Rirekisho handles its own margins internally via .spread class
+  // So we set page margins to 0 for rirekisho format
+  const margins = isRirekisho ? { top: 0, right: 0, bottom: 0, left: 0 } : getMarginSettings();
 
   logger.debug('Building paged webview HTML', { format, paperSize, widthPx, heightPx, margins });
 
@@ -339,28 +389,7 @@ function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): st
 }
 </style>
 <style id="layout-styles">
-html { background: #525252 !important; }
-body { margin: 0; padding: 0; background: transparent !important; }
-#cv-source { display: none; }
-#paged-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  padding: 40px;
-  background: #525252;
-  min-height: 100vh;
-}
-.pagedjs_pages {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-.pagedjs_page {
-  background: #fff !important;
-  box-shadow: 0 2mm 12mm rgba(0,0,0,0.5) !important;
-}
+${generateLayoutStyles()}
 </style>
 <style id="ui-styles">
 #ui-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 10000; }
