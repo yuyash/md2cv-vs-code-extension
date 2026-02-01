@@ -282,6 +282,46 @@ export function generatePageConfig(paperSize: PaperSize, format: OutputFormat): 
 }
 
 /**
+ * Generate layout styles for the preview container
+ * These styles ensure proper centering of pages in the preview
+ */
+export function generateLayoutStyles(): string {
+  return `
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+html, body { 
+  margin: 0; 
+  padding: 0; 
+  background: #525252 !important;
+  width: 100%;
+  overflow-x: hidden;
+}
+#cv-source { display: none; }
+#paged-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 0;
+  background: #525252;
+  min-height: 100vh;
+  width: 100%;
+}
+.pagedjs_pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.pagedjs_page {
+  background: #fff !important;
+  box-shadow: 0 2mm 12mm rgba(0,0,0,0.5) !important;
+}
+`.trim();
+}
+
+/**
  * Build webview HTML with Paged.js for accurate page break rendering
  *
  * Strategy: Use Paged.js "renderTo" approach instead of polyfill.
@@ -349,28 +389,7 @@ function buildPagedWebviewHtml(cvHtml: string, options: PagedWebviewOptions): st
 }
 </style>
 <style id="layout-styles">
-html { background: #525252 !important; }
-body { margin: 0; padding: 0; background: transparent !important; }
-#cv-source { display: none; }
-#paged-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  padding: 40px;
-  background: #525252;
-  min-height: 100vh;
-}
-.pagedjs_pages {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-.pagedjs_page {
-  background: #fff !important;
-  box-shadow: 0 2mm 12mm rgba(0,0,0,0.5) !important;
-}
+${generateLayoutStyles()}
 </style>
 <style id="ui-styles">
 #ui-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 10000; }

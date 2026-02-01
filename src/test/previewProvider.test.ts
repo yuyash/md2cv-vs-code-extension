@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { extractCvContent, generatePageConfig } from '../preview/previewProvider';
+import {
+  extractCvContent,
+  generatePageConfig,
+  generateLayoutStyles,
+} from '../preview/previewProvider';
 
 // Mock vscode module
 vi.mock('vscode', () => ({
@@ -244,6 +248,50 @@ body { width: 210mm; min-height: 297mm; padding: 20mm; margin: 0 auto; color: bl
       // Rirekisho handles its own margins internally
       expect(config).toContain('margin: 0');
       expect(config).not.toContain('30mm');
+    });
+  });
+
+  describe('generateLayoutStyles', () => {
+    it('should include centering styles for paged-container', () => {
+      const styles = generateLayoutStyles();
+
+      expect(styles).toContain('#paged-container');
+      expect(styles).toContain('align-items: center');
+      expect(styles).toContain('width: 100%');
+    });
+
+    it('should include centering styles for pagedjs_pages', () => {
+      const styles = generateLayoutStyles();
+
+      expect(styles).toContain('.pagedjs_pages');
+      expect(styles).toContain('align-items: center');
+    });
+
+    it('should include page styling', () => {
+      const styles = generateLayoutStyles();
+
+      expect(styles).toContain('.pagedjs_page');
+      expect(styles).toContain('background: #fff');
+      expect(styles).toContain('box-shadow');
+    });
+
+    it('should hide cv-source element', () => {
+      const styles = generateLayoutStyles();
+
+      expect(styles).toContain('#cv-source');
+      expect(styles).toContain('display: none');
+    });
+
+    it('should set background color', () => {
+      const styles = generateLayoutStyles();
+
+      expect(styles).toContain('background: #525252');
+    });
+
+    it('should prevent horizontal overflow', () => {
+      const styles = generateLayoutStyles();
+
+      expect(styles).toContain('overflow-x: hidden');
     });
   });
 });
