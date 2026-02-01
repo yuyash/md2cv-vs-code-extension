@@ -447,5 +447,50 @@ More content.`;
       manager.dispose();
       // Should not throw
     });
+
+    it('should block scroll sync during update', () => {
+      const callback = vi.fn();
+      manager.onScrollToEditor(callback);
+
+      const content = `## Summary
+Content here.`;
+      manager.updateSectionPositions(content);
+
+      // Begin update - should block scroll sync
+      manager.beginUpdate();
+      expect(manager.isUpdating()).toBe(true);
+
+      manager.handleWebviewScroll({
+        type: 'scroll',
+        sectionId: 'summary',
+      });
+
+      // Callback should not be called during update
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('should re-enable scroll sync after endUpdate delay', async () => {
+      const callback = vi.fn();
+      manager.onScrollToEditor(callback);
+
+      const content = `## Summary
+Content here.`;
+      manager.updateSectionPositions(content);
+
+      manager.beginUpdate();
+      manager.endUpdate();
+
+      // Wait for the delay (500ms + buffer)
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      expect(manager.isUpdating()).toBe(false);
+
+      manager.handleWebviewScroll({
+        type: 'scroll',
+        sectionId: 'summary',
+      });
+
+      expect(callback).toHaveBeenCalled();
+    });
   });
 });
