@@ -535,95 +535,122 @@ window.pagedJsError = null;
   let syncScrollEnabled = true;
   let isScrollingFromEditor = false;
   let syncScrollTimeout = null;
-  // Map of section ID to { element, top, bottom } for scroll sync
-  let sectionElements = {};
-  // Ordered list of section IDs for position calculation
-  let sectionOrder = [];
+  // Array of elements with source line info: { element, startLine, endLine }
+  let sourceLineElements = [];
 
   function initSectionElements() {
-    sectionElements = {};
-    sectionOrder = [];
+    sourceLineElements = [];
     
     // After Paged.js renders, content is inside .pagedjs_page_content
-    // Look for .cv-section elements with class pattern cv-section--{id}
-    // The HTML structure is: <section class="cv-section cv-section--summary">
+    // Look for elements with data-source-line attribute
     const container = document.getElementById('paged-container');
     if (!container) {
       console.log('[md2cv] No paged-container found');
       return;
     }
 
-    // Find all cv-section elements in the rendered content
-    const sections = container.querySelectorAll('.cv-section');
-    console.log('[md2cv] Found cv-section elements:', sections.length);
+    // Find all elements with data-source-line attribute
+    const elementsWithSourceLine = container.querySelectorAll('[data-source-line]');
+    console.log('[md2cv] Found elements with source line:', elementsWithSourceLine.length);
     
-    sections.forEach(section => {
-      // Extract section ID from class name (e.g., cv-section--summary -> summary)
-      const classList = Array.from(section.classList);
-      const sectionClass = classList.find(c => c.startsWith('cv-section--'));
-      if (sectionClass) {
-        const id = sectionClass.replace('cv-section--', '');
-        // Store element reference - positions will be calculated on demand
-        sectionElements[id] = { element: section };
-        sectionOrder.push(id);
+    elementsWithSourceLine.forEach(element => {
+      const startLine = parseInt(element.getAttribute('data-source-line'), 10);
+      const endLine = parseInt(element.getAttribute('data-source-end-line') || startLine, 10);
+      
+      if (!isNaN(startLine)) {
+        sourceLineElements.push({
+          element,
+          startLine,
+          endLine
+        });
       }
     });
 
-    // Also look for h2 elements as fallback (they contain section titles)
-    if (Object.keys(sectionElements).length === 0) {
-      container.querySelectorAll('h2').forEach(h2 => {
-        const text = h2.textContent?.trim();
-        if (text) {
-          // Convert title to ID format (lowercase, replace spaces with hyphens)
-          const id = text.toLowerCase().replace(/\\s+/g, '-');
-          sectionElements[id] = { element: h2 };
-          sectionOrder.push(id);
+    // Sort by start line
+    sourceLineElements.sort((a, b) => a.startLine - b.startLine);
+    
+    console.log('[md2cv] Initialized source line elements:', sourceLineElements.map(e => ({
+      startLine: e.startLine,
+      endLine: e.endLine
+    })));
+  }
+
+  // Find the element that contains the given source line
+  function findElementForLine(line) {
+    for (let i = sourceLineElements.length - 1; i >= 0; i--) {
+      const elem = sourceLineElements[i];
+      if (line >= elem.startLine && line <= elem.endLine) {
+        return { elem, positionInSection: (line - elem.startLine) / Math.max(1, elem.endLine - elem.startLine) };
+      }
+      if (line >= elem.startLine) {
+        // Line is after this section's start but before next section
+        const nextElem = sourceLineElements[i + 1];
+        if (!nextElem || line < nextElem.startLine) {
+          return { elem, positionInSection: (line - elem.startLine) / Math.max(1, elem.endLine - elem.startLine) };
         }
-      });
-    }
-
-    console.log('[md2cv] Initialized section elements:', Object.keys(sectionElements));
-  }
-
-  // Get current position of a section element (recalculates from DOM)
-  function getSectionPosition(sectionData) {
-    if (!sectionData || !sectionData.element) return null;
-    const rect = sectionData.element.getBoundingClientRect();
-    return {
-      top: rect.top + window.scrollY,
-      bottom: rect.bottom + window.scrollY
-    };
-  }
-
-  function scrollToSection(sectionId, positionInSection) {
-    const sectionData = sectionElements[sectionId];
-    const pos = getSectionPosition(sectionData);
-    if (pos) {
-      isScrollingFromEditor = true;
-      
-      let targetY = pos.top;
-      
-      // Calculate position within section if provided
-      if (typeof positionInSection === 'number' && positionInSection > 0) {
-        const sectionHeight = pos.bottom - pos.top;
-        targetY += sectionHeight * positionInSection;
-      }
-      
-      window.scrollTo({
-        top: Math.max(0, targetY - 20),
-        behavior: 'smooth'
-      });
-      
-      setTimeout(() => {
-        isScrollingFromEditor = false;
-      }, 500);
-    } else {
-      // Fallback to percentage-based scrolling if section not found
-      console.log('[md2cv] Section not found, using position fallback:', sectionId);
-      if (typeof positionInSection === 'number') {
-        scrollToPosition(positionInSection);
       }
     }
+    return null;
+  }
+
+  // Find the source line at the current scroll position
+  function findLineAtScrollPosition() {
+    const viewportTop = window.scrollY + 50;
+    
+    for (let i = sourceLineElements.length - 1; i >= 0; i--) {
+      const elemData = sourceLineElements[i];
+      const rect = elemData.element.getBoundingClientRect();
+      const elemTop = rect.top + window.scrollY;
+      const elemBottom = rect.bottom + window.scrollY;
+      
+      if (elemTop <= viewportTop) {
+        // Calculate position within this element
+        const elemHeight = elemBottom - elemTop;
+        const positionInElem = elemHeight > 0 ? Math.max(0, Math.min(1, (viewportTop - elemTop) / elemHeight)) : 0;
+        
+        // Interpolate the source line
+        const lineRange = elemData.endLine - elemData.startLine;
+        const sourceLine = elemData.startLine + Math.round(lineRange * positionInElem);
+        
+        return {
+          line: sourceLine,
+          sectionStartLine: elemData.startLine,
+          sectionEndLine: elemData.endLine,
+          positionInSection: positionInElem
+        };
+      }
+    }
+    
+    return null;
+  }
+
+  function scrollToLine(line) {
+    const result = findElementForLine(line);
+    if (!result) {
+      console.log('[md2cv] No element found for line:', line);
+      return;
+    }
+    
+    isScrollingFromEditor = true;
+    
+    const { elem, positionInSection } = result;
+    const rect = elem.element.getBoundingClientRect();
+    const elemTop = rect.top + window.scrollY;
+    const elemHeight = rect.height;
+    
+    // Calculate target scroll position based on position within section
+    let targetY = elemTop + (elemHeight * positionInSection);
+    
+    window.scrollTo({
+      top: Math.max(0, targetY - 50),
+      behavior: 'smooth'
+    });
+    
+    setTimeout(() => {
+      isScrollingFromEditor = false;
+    }, 500);
+    
+    console.log('[md2cv] Scrolled to line:', line, 'position:', positionInSection);
   }
 
   function scrollToPosition(position) {
@@ -652,33 +679,25 @@ window.pagedJsError = null;
     }
 
     syncScrollTimeout = setTimeout(() => {
-      const viewportTop = window.scrollY + 50;
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      const scrollPosition = maxScroll > 0 ? window.scrollY / maxScroll : 0;
-
-      // Find the section that contains the current viewport position
-      let visibleSection = null;
-      let positionInSection = 0;
-
-      for (const id of sectionOrder) {
-        const sectionData = sectionElements[id];
-        const pos = getSectionPosition(sectionData);
-        if (pos && pos.top <= viewportTop) {
-          visibleSection = id;
-          // Calculate position within section
-          const sectionHeight = pos.bottom - pos.top;
-          if (sectionHeight > 0) {
-            positionInSection = Math.max(0, Math.min(1, (viewportTop - pos.top) / sectionHeight));
-          }
-        }
+      const lineInfo = findLineAtScrollPosition();
+      
+      if (lineInfo) {
+        vscode.postMessage({
+          type: 'scroll',
+          line: lineInfo.line,
+          sectionStartLine: lineInfo.sectionStartLine,
+          sectionEndLine: lineInfo.sectionEndLine,
+          positionInSection: lineInfo.positionInSection
+        });
+      } else {
+        // Fallback to percentage-based
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        const scrollPosition = maxScroll > 0 ? window.scrollY / maxScroll : 0;
+        vscode.postMessage({
+          type: 'scroll',
+          position: scrollPosition
+        });
       }
-
-      vscode.postMessage({
-        type: 'scroll',
-        sectionId: visibleSection,
-        position: scrollPosition,
-        positionInSection: positionInSection
-      });
     }, 100);
   }
 
@@ -767,7 +786,12 @@ window.pagedJsError = null;
         break;
 
       case 'scrollToSection':
-        scrollToSection(message.sectionId, message.position);
+        // Legacy support - convert section to line if possible
+        if (message.line !== undefined) {
+          scrollToLine(message.line);
+        } else {
+          scrollToPosition(message.position || 0);
+        }
         break;
 
       case 'scrollToPosition':
@@ -775,7 +799,7 @@ window.pagedJsError = null;
         break;
 
       case 'scrollToLine':
-        scrollToPosition(message.line / (document.body.scrollHeight || 1));
+        scrollToLine(message.line);
         break;
 
       case 'setSyncScrollEnabled':

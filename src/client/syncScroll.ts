@@ -27,7 +27,7 @@ export interface SectionPosition {
  */
 export interface ScrollSyncMessage {
   type: 'scrollToSection' | 'scrollToLine' | 'scrollToPosition';
-  /** Section ID to scroll to */
+  /** Section ID to scroll to (legacy) */
   sectionId?: string;
   /** Line number to scroll to (0-based) */
   line?: number;
@@ -40,12 +40,16 @@ export interface ScrollSyncMessage {
  */
 export interface WebviewScrollMessage {
   type: 'scroll';
-  /** Section ID that is currently visible */
-  sectionId?: string;
-  /** Scroll position as percentage (0-1) */
-  position?: number;
+  /** Source line number (0-based) */
+  line?: number;
+  /** Section start line (0-based) */
+  sectionStartLine?: number;
+  /** Section end line (0-based) */
+  sectionEndLine?: number;
   /** Position within the current section (0-1) */
   positionInSection?: number;
+  /** Scroll position as percentage (0-1) - fallback */
+  position?: number;
 }
 
 /**
@@ -270,7 +274,7 @@ export class SyncScrollManager implements vscode.Disposable {
    */
   public handleEditorScroll(
     visibleRanges: readonly vscode.Range[],
-    document: vscode.TextDocument
+    _document: vscode.TextDocument
   ): void {
     if (!this._enabled || !this._onScrollToPreview || this._isUpdating) {
       return;
@@ -296,28 +300,11 @@ export class SyncScrollManager implements vscode.Disposable {
 
       this._lastScrollLine = firstVisibleLine;
 
-      // Find the section at the current line
-      const section = findSectionAtLine(this._sectionPositions, firstVisibleLine);
-
-      if (section) {
-        // Calculate position within section for smooth scrolling
-        const positionInSection = calculatePositionInSection(section, firstVisibleLine);
-
-        this._onScrollToPreview?.({
-          type: 'scrollToSection',
-          sectionId: section.id,
-          position: positionInSection,
-        });
-      } else {
-        // Fall back to percentage-based scrolling
-        const totalLines = document.lineCount;
-        const scrollPercentage = calculateScrollPercentage(firstVisibleLine, totalLines);
-
-        this._onScrollToPreview?.({
-          type: 'scrollToPosition',
-          position: scrollPercentage,
-        });
-      }
+      // Send line-based scroll message directly
+      this._onScrollToPreview?.({
+        type: 'scrollToLine',
+        line: firstVisibleLine,
+      });
     }, 50); // 50ms throttle
   }
 
@@ -331,21 +318,10 @@ export class SyncScrollManager implements vscode.Disposable {
       return;
     }
 
-    // Try section-based scrolling first
-    if (message.sectionId) {
-      const line = findLineForSection(this._sectionPositions, message.sectionId);
-      if (line !== null) {
-        // If we have position within section, calculate more precise line
-        const section = this._sectionPositions.find((s) => s.id === message.sectionId);
-        if (section && typeof message.positionInSection === 'number') {
-          const sectionLines = section.endLine - section.startLine;
-          const lineOffset = Math.floor(sectionLines * message.positionInSection);
-          this._onScrollToEditor(section.startLine + lineOffset);
-        } else {
-          this._onScrollToEditor(line);
-        }
-        return;
-      }
+    // Use line-based scrolling if available
+    if (typeof message.line === 'number') {
+      this._onScrollToEditor(message.line);
+      return;
     }
 
     // Fall back to percentage-based scrolling
