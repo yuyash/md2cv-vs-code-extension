@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.6](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.5...v1.4.6) (2026-02-02)
+
+
+### Bug Fixes
+
+* use system Chrome/Chromium for PDF export when available ([#28](https://github.com/yuyash/md2cv-vs-code-extension/issues/28)) ([6a7ea99](https://github.com/yuyash/md2cv-vs-code-extension/commit/6a7ea9993c5d7a61b26b2a1a71e2c319b1555bce))
+
 ## [1.4.5](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.4...v1.4.5) (2026-02-01)
 
 
