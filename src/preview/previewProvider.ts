@@ -576,52 +576,106 @@ window.pagedJsError = null;
   }
 
   // Find the element that contains the given source line
+  // Prefers the most specific (smallest range) element
   function findElementForLine(line) {
-    for (let i = sourceLineElements.length - 1; i >= 0; i--) {
+    // Find all elements that contain this line
+    const candidates = [];
+    for (let i = 0; i < sourceLineElements.length; i++) {
       const elem = sourceLineElements[i];
       if (line >= elem.startLine && line <= elem.endLine) {
-        return { elem, positionInSection: (line - elem.startLine) / Math.max(1, elem.endLine - elem.startLine) };
-      }
-      if (line >= elem.startLine) {
-        // Line is after this section's start but before next section
-        const nextElem = sourceLineElements[i + 1];
-        if (!nextElem || line < nextElem.startLine) {
-          return { elem, positionInSection: (line - elem.startLine) / Math.max(1, elem.endLine - elem.startLine) };
-        }
+        candidates.push(elem);
       }
     }
-    return null;
+    
+    if (candidates.length === 0) {
+      // No exact match, find the closest element before this line
+      for (let i = sourceLineElements.length - 1; i >= 0; i--) {
+        const elem = sourceLineElements[i];
+        if (line >= elem.startLine) {
+          const positionInSection = (line - elem.startLine) / Math.max(1, elem.endLine - elem.startLine);
+          return { elem, positionInSection: Math.min(1, positionInSection) };
+        }
+      }
+      return null;
+    }
+    
+    // Find the most specific element (smallest range)
+    let bestElem = candidates[0];
+    let bestRange = bestElem.endLine - bestElem.startLine;
+    
+    for (let i = 1; i < candidates.length; i++) {
+      const elem = candidates[i];
+      const range = elem.endLine - elem.startLine;
+      if (range < bestRange) {
+        bestElem = elem;
+        bestRange = range;
+      }
+    }
+    
+    const positionInSection = (line - bestElem.startLine) / Math.max(1, bestRange);
+    return { elem: bestElem, positionInSection };
   }
 
   // Find the source line at the current scroll position
+  // Prefers the most specific (smallest range) element at the viewport position
   function findLineAtScrollPosition() {
     const viewportTop = window.scrollY + 50;
     
-    for (let i = sourceLineElements.length - 1; i >= 0; i--) {
+    // Find all elements that are at or above the viewport position
+    const candidates = [];
+    for (let i = 0; i < sourceLineElements.length; i++) {
       const elemData = sourceLineElements[i];
       const rect = elemData.element.getBoundingClientRect();
       const elemTop = rect.top + window.scrollY;
       const elemBottom = rect.bottom + window.scrollY;
       
-      if (elemTop <= viewportTop) {
-        // Calculate position within this element
-        const elemHeight = elemBottom - elemTop;
-        const positionInElem = elemHeight > 0 ? Math.max(0, Math.min(1, (viewportTop - elemTop) / elemHeight)) : 0;
-        
-        // Interpolate the source line
-        const lineRange = elemData.endLine - elemData.startLine;
-        const sourceLine = elemData.startLine + Math.round(lineRange * positionInElem);
-        
-        return {
-          line: sourceLine,
-          sectionStartLine: elemData.startLine,
-          sectionEndLine: elemData.endLine,
-          positionInSection: positionInElem
-        };
+      if (elemTop <= viewportTop && elemBottom >= viewportTop) {
+        // Element spans the viewport position
+        candidates.push({ elemData, rect, elemTop, elemBottom });
+      } else if (elemTop <= viewportTop && candidates.length === 0) {
+        // Element is above viewport, keep as fallback
+        candidates.push({ elemData, rect, elemTop, elemBottom });
       }
     }
     
-    return null;
+    if (candidates.length === 0) {
+      return null;
+    }
+    
+    // Find the most specific element (smallest range)
+    let best = candidates[0];
+    let bestRange = best.elemData.endLine - best.elemData.startLine;
+    
+    for (let i = 1; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      const range = candidate.elemData.endLine - candidate.elemData.startLine;
+      // Prefer elements that span the viewport position
+      const spansViewport = candidate.elemTop <= viewportTop && candidate.elemBottom >= viewportTop;
+      const bestSpansViewport = best.elemTop <= viewportTop && best.elemBottom >= viewportTop;
+      
+      if (spansViewport && !bestSpansViewport) {
+        best = candidate;
+        bestRange = range;
+      } else if (spansViewport === bestSpansViewport && range < bestRange) {
+        best = candidate;
+        bestRange = range;
+      }
+    }
+    
+    const { elemData, elemTop, elemBottom } = best;
+    const elemHeight = elemBottom - elemTop;
+    const positionInElem = elemHeight > 0 ? Math.max(0, Math.min(1, (viewportTop - elemTop) / elemHeight)) : 0;
+    
+    // Interpolate the source line
+    const lineRange = elemData.endLine - elemData.startLine;
+    const sourceLine = elemData.startLine + Math.round(lineRange * positionInElem);
+    
+    return {
+      line: sourceLine,
+      sectionStartLine: elemData.startLine,
+      sectionEndLine: elemData.endLine,
+      positionInSection: positionInElem
+    };
   }
 
   function scrollToLine(line) {
