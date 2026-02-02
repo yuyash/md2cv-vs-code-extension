@@ -99,6 +99,7 @@ For detailed Markdown format documentation, see the [md2cv documentation](https:
 ## Requirements
 
 - VS Code 1.90.0 or higher
+- For PDF export: Chrome or Chromium (the extension will auto-detect your system browser, or use its bundled version)
 
 ## Related Projects
 
