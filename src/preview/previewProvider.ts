@@ -679,6 +679,21 @@ window.pagedJsError = null;
   }
 
   function scrollToLine(line) {
+    // Check if line is in frontmatter (before any section)
+    // If no elements exist or line is before the first element, scroll to top
+    if (sourceLineElements.length === 0 || line < sourceLineElements[0].startLine) {
+      console.log('[md2cv] Line is in frontmatter, scrolling to top:', line);
+      isScrollingFromEditor = true;
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+      setTimeout(() => {
+        isScrollingFromEditor = false;
+      }, 500);
+      return;
+    }
+    
     const result = findElementForLine(line);
     if (!result) {
       console.log('[md2cv] No element found for line:', line);
