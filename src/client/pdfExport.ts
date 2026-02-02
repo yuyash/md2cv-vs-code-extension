@@ -120,6 +120,51 @@ function generateHtmlForFormat(
 }
 
 /**
+ * Find Chrome/Chromium executable on the system
+ * Returns undefined if not found, letting Puppeteer use its bundled version
+ */
+function findSystemChrome(): string | undefined {
+  // Check environment variable first
+  const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (envPath && fs.existsSync(envPath)) {
+    logger.debug('Using Chrome from PUPPETEER_EXECUTABLE_PATH', { path: envPath });
+    return envPath;
+  }
+
+  // Common Chrome/Chromium paths by platform
+  const candidates: string[] =
+    process.platform === 'darwin'
+      ? [
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+          '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        ]
+      : process.platform === 'win32'
+        ? [
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
+          ]
+        : [
+            // Linux paths
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/snap/bin/chromium',
+            '/usr/bin/brave-browser',
+          ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      logger.debug('Found system Chrome', { path: candidate });
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Generate PDF from HTML using Puppeteer
  */
 async function generatePdfFromHtml(
@@ -128,9 +173,13 @@ async function generatePdfFromHtml(
   isRirekisho: boolean,
   marginMm: PageMargins
 ): Promise<Buffer> {
+  // Try to find system Chrome first (helps on Linux where bundled Chrome may lack dependencies)
+  const executablePath = findSystemChrome();
+
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    ...(executablePath && { executablePath }),
   });
 
   try {
@@ -335,6 +384,26 @@ export function showExportErrorNotification(error: string): void {
         outputChannel.appendLine(
           vscode.l10n.t('- Verify you have write permissions to the output directory')
         );
+
+        // Add Linux-specific guidance for Chrome issues
+        if (process.platform === 'linux' && error.toLowerCase().includes('chrome')) {
+          outputChannel.appendLine('');
+          outputChannel.appendLine(vscode.l10n.t('Linux Chrome troubleshooting:'));
+          outputChannel.appendLine(
+            vscode.l10n.t('- Install Chrome/Chromium: sudo apt install chromium-browser')
+          );
+          outputChannel.appendLine(
+            vscode.l10n.t(
+              '- Or set PUPPETEER_EXECUTABLE_PATH environment variable to your Chrome path'
+            )
+          );
+          outputChannel.appendLine(
+            vscode.l10n.t(
+              '- Or install Puppeteer dependencies: https://pptr.dev/troubleshooting#chrome-doesnt-launch-on-linux'
+            )
+          );
+        }
+
         outputChannel.show();
       }
     });
