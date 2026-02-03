@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.7](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.6...v1.4.7) (2026-02-03)
+
+
+### Bug Fixes
+
+* paper size button selection state not updating in preview ([#31](https://github.com/yuyash/md2cv-vs-code-extension/issues/31)) ([1ef17de](https://github.com/yuyash/md2cv-vs-code-extension/commit/1ef17de1d872724b29fa0c7efbff1e31e3ce8942))
+
 ## [1.4.6](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.5...v1.4.6) (2026-02-02)
 
 
