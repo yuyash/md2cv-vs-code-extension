@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.7...v1.5.0) (2026-02-03)
+
+
+### Features
+
+* remove photo insertion command and use md2cv frontmatter photo ([#33](https://github.com/yuyash/md2cv-vs-code-extension/issues/33)) ([e544d3d](https://github.com/yuyash/md2cv-vs-code-extension/commit/e544d3d9e7ab4e0045387068df223affe283690b))
+
 ## [1.4.7](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.6...v1.4.7) (2026-02-03)
 
 
