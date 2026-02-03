@@ -17,7 +17,6 @@ export const ConfigKeys = {
   ENABLE_SYNC_SCROLL: 'enableSyncScroll',
   TEMPLATE_LANGUAGE: 'templateLanguage',
   INCLUDE_TEMPLATE_COMMENTS: 'includeTemplateComments',
-  PHOTO_PATH: 'photoPath',
   DEFAULT_LANGUAGE: 'defaultLanguage',
   CV_FILE_PATTERNS: 'cvFilePatterns',
 } as const;
@@ -49,8 +48,6 @@ export interface Md2cvConfig {
   templateLanguage: 'en' | 'ja';
   /** Include explanatory comments in generated templates */
   includeTemplateComments: boolean;
-  /** Path to photo image for Japanese rirekisho format */
-  photoPath: string;
   /** Default CV language (auto-detect, English, or Japanese) */
   defaultLanguage: CvLanguage;
   /** File patterns to enable md2cv features (glob patterns) */
@@ -68,7 +65,6 @@ export const DEFAULT_CONFIG: Readonly<Md2cvConfig> = {
   enableSyncScroll: true,
   templateLanguage: 'en',
   includeTemplateComments: true,
-  photoPath: '',
   defaultLanguage: 'auto',
   cvFilePatterns: ['**/cv*.md', '**/resume*.md', '**/rirekisho*.md', '**/shokumukeirekisho*.md'],
 };
@@ -154,7 +150,6 @@ export class ConfigurationManager implements vscode.Disposable {
         ConfigKeys.INCLUDE_TEMPLATE_COMMENTS,
         DEFAULT_CONFIG.includeTemplateComments
       ),
-      photoPath: config.get<string>(ConfigKeys.PHOTO_PATH, DEFAULT_CONFIG.photoPath),
       defaultLanguage: config.get<CvLanguage>(
         ConfigKeys.DEFAULT_LANGUAGE,
         DEFAULT_CONFIG.defaultLanguage
@@ -287,13 +282,6 @@ export class ConfigurationManager implements vscode.Disposable {
    */
   public shouldIncludeTemplateComments(): boolean {
     return this._cachedConfig.includeTemplateComments;
-  }
-
-  /**
-   * Get the photo path
-   */
-  public getPhotoPath(): string {
-    return this._cachedConfig.photoPath;
   }
 
   /**

@@ -85,16 +85,15 @@ For detailed Markdown format documentation, see the [md2cv documentation](https:
 
 ## Commands
 
-| Command                     | Keybinding                     | Description                     |
-| --------------------------- | ------------------------------ | ------------------------------- |
-| `md2cv: Open Preview`       | `Cmd+Shift+V` / `Ctrl+Shift+V` | Open CV preview                 |
-| `md2cv: Export PDF`         | `Cmd+Alt+E` / `Ctrl+Alt+E`     | Export to PDF                   |
-| `md2cv: Change Format`      | `Cmd+Alt+F` / `Ctrl+Alt+F`     | Switch between CV formats       |
-| `md2cv: Change Paper Size`  | `Cmd+Alt+P` / `Ctrl+Alt+P`     | Change paper size               |
-| `md2cv: Generate Template`  | `Cmd+Alt+T` / `Ctrl+Alt+T`     | Generate CV template            |
-| `md2cv: Insert Photo`       | -                              | Insert photo (Japanese formats) |
-| `md2cv: Toggle Sync Scroll` | `Cmd+Alt+S` / `Ctrl+Alt+S`     | Toggle sync scrolling           |
-| `md2cv: Switch Language`    | `Cmd+Alt+L` / `Ctrl+Alt+L`     | Switch CV language              |
+| Command                     | Keybinding                     | Description               |
+| --------------------------- | ------------------------------ | ------------------------- |
+| `md2cv: Open Preview`       | `Cmd+Shift+V` / `Ctrl+Shift+V` | Open CV preview           |
+| `md2cv: Export PDF`         | `Cmd+Alt+E` / `Ctrl+Alt+E`     | Export to PDF             |
+| `md2cv: Change Format`      | `Cmd+Alt+F` / `Ctrl+Alt+F`     | Switch between CV formats |
+| `md2cv: Change Paper Size`  | `Cmd+Alt+P` / `Ctrl+Alt+P`     | Change paper size         |
+| `md2cv: Generate Template`  | `Cmd+Alt+T` / `Ctrl+Alt+T`     | Generate CV template      |
+| `md2cv: Toggle Sync Scroll` | `Cmd+Alt+S` / `Ctrl+Alt+S`     | Toggle sync scrolling     |
+| `md2cv: Switch Language`    | `Cmd+Alt+L` / `Ctrl+Alt+L`     | Switch CV language        |
 
 ## Requirements
 

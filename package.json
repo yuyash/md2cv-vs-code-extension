@@ -70,12 +70,6 @@
         "category": "md2cv"
       },
       {
-        "command": "md2cv.insertPhoto",
-        "title": "%command.insertPhoto%",
-        "category": "md2cv",
-        "enablement": "editorLangId == markdown"
-      },
-      {
         "command": "md2cv.toggleSyncScroll",
         "title": "%command.toggleSyncScroll%",
         "category": "md2cv",
@@ -145,11 +139,6 @@
           "type": "boolean",
           "default": true,
           "description": "%config.includeTemplateComments%"
-        },
-        "md2cv.photoPath": {
-          "type": "string",
-          "default": "",
-          "description": "%config.photoPath%"
         },
         "md2cv.defaultLanguage": {
           "type": "string",
@@ -299,10 +288,6 @@
           "command": "md2cv.generateTemplate"
         },
         {
-          "command": "md2cv.insertPhoto",
-          "when": "editorLangId == markdown || md2cv.previewActive"
-        },
-        {
           "command": "md2cv.toggleSyncScroll",
           "when": "editorLangId == markdown || md2cv.previewActive"
         },
@@ -367,7 +352,7 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
-    "md2cv": "^2.0.2",
+    "md2cv": "^2.1.0",
     "puppeteer": "^24.34.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",

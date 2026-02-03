@@ -4,7 +4,6 @@
   "command.changeFormat": "ドキュメント形式を変更",
   "command.changePaperSize": "用紙サイズを変更",
   "command.generateTemplate": "テンプレートを生成",
-  "command.insertPhoto": "写真を挿入",
   "command.toggleSyncScroll": "同期スクロールの切り替え",
   "command.switchLanguage": "CV言語の切り替え（英語/日本語）",
   "config.defaultFormat": "プレビューとエクスポートのデフォルトドキュメント形式",
@@ -13,7 +12,6 @@
   "config.enableSyncScroll": "エディタとプレビュー間の同期スクロールを有効にする",
   "config.templateLanguage": "生成されるテンプレートのデフォルト言語",
   "config.includeTemplateComments": "生成されるテンプレートに説明コメントを含める",
-  "config.photoPath": "日本式履歴書用の写真画像のパス",
   "config.defaultLanguage": "デフォルトのCV言語（自動検出、英語、または日本語）",
   "config.cvFilePatterns": "md2cv機能を有効にするファイルパターン（**/cv*.md のようなglobパターン）",
   "config.marginMm": "CV形式のページ余白（mm単位、履歴書には適用されません）"

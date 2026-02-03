@@ -67,7 +67,6 @@ describe('configManager', () => {
       expect(ConfigKeys.ENABLE_SYNC_SCROLL).toBe('enableSyncScroll');
       expect(ConfigKeys.TEMPLATE_LANGUAGE).toBe('templateLanguage');
       expect(ConfigKeys.INCLUDE_TEMPLATE_COMMENTS).toBe('includeTemplateComments');
-      expect(ConfigKeys.PHOTO_PATH).toBe('photoPath');
       expect(ConfigKeys.DEFAULT_LANGUAGE).toBe('defaultLanguage');
       expect(ConfigKeys.CV_FILE_PATTERNS).toBe('cvFilePatterns');
     });
@@ -81,7 +80,6 @@ describe('configManager', () => {
       expect(DEFAULT_CONFIG.enableSyncScroll).toBe(true);
       expect(DEFAULT_CONFIG.templateLanguage).toBe('en');
       expect(DEFAULT_CONFIG.includeTemplateComments).toBe(true);
-      expect(DEFAULT_CONFIG.photoPath).toBe('');
       expect(DEFAULT_CONFIG.defaultLanguage).toBe('auto');
       expect(DEFAULT_CONFIG.cvFilePatterns).toEqual([
         '**/cv*.md',
@@ -218,13 +216,6 @@ describe('configManager', () => {
       it('should return include template comments setting', () => {
         const include = manager.shouldIncludeTemplateComments();
         expect(typeof include).toBe('boolean');
-      });
-    });
-
-    describe('getPhotoPath', () => {
-      it('should return photo path', () => {
-        const path = manager.getPhotoPath();
-        expect(typeof path).toBe('string');
       });
     });
 
