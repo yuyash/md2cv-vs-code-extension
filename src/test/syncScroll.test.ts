@@ -339,7 +339,7 @@ Content.`;
       expect(callback).not.toHaveBeenCalled();
     });
 
-    it('should handle webview scroll with section', () => {
+    it('should handle webview scroll with line number', () => {
       const callback = vi.fn();
       manager.onScrollToEditor(callback);
 
@@ -349,7 +349,7 @@ Content here.`;
 
       manager.handleWebviewScroll({
         type: 'scroll',
-        sectionId: 'summary',
+        line: 0,
       });
 
       expect(callback).toHaveBeenCalledWith(0);
@@ -362,7 +362,7 @@ Content here.`;
 
       manager.handleWebviewScroll({
         type: 'scroll',
-        sectionId: 'summary',
+        line: 0,
       });
 
       expect(callback).not.toHaveBeenCalled();
@@ -372,7 +372,7 @@ Content here.`;
       // No callback set, should not throw
       manager.handleWebviewScroll({
         type: 'scroll',
-        sectionId: 'summary',
+        line: 0,
       });
     });
 
@@ -396,7 +396,7 @@ More content.`;
       expect(callback).toHaveBeenCalled();
     });
 
-    it('should handle webview scroll with positionInSection', () => {
+    it('should handle webview scroll with line in middle of section', () => {
       const callback = vi.fn();
       manager.onScrollToEditor(callback);
 
@@ -412,17 +412,16 @@ More content.`;
 
       manager.handleWebviewScroll({
         type: 'scroll',
-        sectionId: 'summary',
-        positionInSection: 0.5,
+        line: 2,
       });
 
-      // Should scroll to middle of section
+      // Should scroll to the specified line
       expect(callback).toHaveBeenCalled();
       const calledLine = callback.mock.calls[0][0];
-      expect(calledLine).toBeGreaterThanOrEqual(0);
+      expect(calledLine).toBe(2);
     });
 
-    it('should fall back to percentage scrolling when section not found', () => {
+    it('should fall back to percentage scrolling when line not provided', () => {
       const callback = vi.fn();
       manager.onScrollToEditor(callback);
 
@@ -435,7 +434,6 @@ More content.`;
 
       manager.handleWebviewScroll({
         type: 'scroll',
-        sectionId: 'nonexistent',
         position: 0.5,
       });
 
@@ -462,7 +460,7 @@ Content here.`;
 
       manager.handleWebviewScroll({
         type: 'scroll',
-        sectionId: 'summary',
+        line: 0,
       });
 
       // Callback should not be called during update
@@ -487,7 +485,7 @@ Content here.`;
 
       manager.handleWebviewScroll({
         type: 'scroll',
-        sectionId: 'summary',
+        line: 0,
       });
 
       expect(callback).toHaveBeenCalled();
