@@ -86,16 +86,15 @@ phone_number: 090-1234-5678
 
 ## コマンド
 
-| コマンド                    | キーバインド                   | 説明                             |
-| --------------------------- | ------------------------------ | -------------------------------- |
-| `md2cv: Open Preview`       | `Cmd+Shift+V` / `Ctrl+Shift+V` | プレビューを開く                 |
-| `md2cv: Export PDF`         | `Cmd+Alt+E` / `Ctrl+Alt+E`     | PDF にエクスポート               |
-| `md2cv: Change Format`      | `Cmd+Alt+F` / `Ctrl+Alt+F`     | フォーマットを切り替え           |
-| `md2cv: Change Paper Size`  | `Cmd+Alt+P` / `Ctrl+Alt+P`     | 用紙サイズを変更                 |
-| `md2cv: Generate Template`  | `Cmd+Alt+T` / `Ctrl+Alt+T`     | テンプレートを生成               |
-| `md2cv: Insert Photo`       | -                              | 写真を挿入（日本語フォーマット） |
-| `md2cv: Toggle Sync Scroll` | `Cmd+Alt+S` / `Ctrl+Alt+S`     | 同期スクロールの切り替え         |
-| `md2cv: Switch Language`    | `Cmd+Alt+L` / `Ctrl+Alt+L`     | CV の言語を切り替え              |
+| コマンド                    | キーバインド                   | 説明                     |
+| --------------------------- | ------------------------------ | ------------------------ |
+| `md2cv: Open Preview`       | `Cmd+Shift+V` / `Ctrl+Shift+V` | プレビューを開く         |
+| `md2cv: Export PDF`         | `Cmd+Alt+E` / `Ctrl+Alt+E`     | PDF にエクスポート       |
+| `md2cv: Change Format`      | `Cmd+Alt+F` / `Ctrl+Alt+F`     | フォーマットを切り替え   |
+| `md2cv: Change Paper Size`  | `Cmd+Alt+P` / `Ctrl+Alt+P`     | 用紙サイズを変更         |
+| `md2cv: Generate Template`  | `Cmd+Alt+T` / `Ctrl+Alt+T`     | テンプレートを生成       |
+| `md2cv: Toggle Sync Scroll` | `Cmd+Alt+S` / `Ctrl+Alt+S`     | 同期スクロールの切り替え |
+| `md2cv: Switch Language`    | `Cmd+Alt+L` / `Ctrl+Alt+L`     | CV の言語を切り替え      |
 
 ## 要件
 

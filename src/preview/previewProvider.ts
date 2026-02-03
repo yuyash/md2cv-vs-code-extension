@@ -12,6 +12,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import {
   parseMarkdown,
   generateEnHtml,
@@ -64,7 +65,6 @@ export interface PreviewState {
   documentUri: string;
   format: OutputFormat;
   paperSize: PaperSize;
-  photoPath?: string;
   zoomLevel: number;
   /** Whether the webview has been initialized with full HTML */
   initialized: boolean;
@@ -77,7 +77,8 @@ export interface PreviewState {
 interface HtmlGeneratorOptions {
   format: OutputFormat;
   paperSize: PaperSize;
-  photoPath?: string;
+  /** Base directory for resolving relative photo paths */
+  baseDir?: string;
 }
 
 class HtmlGenerator {
@@ -110,11 +111,18 @@ class HtmlGenerator {
 
   private generateFormatHtml(parsedCV: ParsedCV, options: HtmlGeneratorOptions): string {
     const cvInput = { metadata: parsedCV.metadata, sections: parsedCV.sections };
-    const { format, paperSize, photoPath } = options;
+    const { format, paperSize, baseDir } = options;
 
     logger.debug('Generating HTML for format', { format, paperSize });
 
     const language = detectLanguage(cvInput);
+
+    // Resolve photo path from metadata if present
+    let photoDataUri: string | undefined;
+    if (parsedCV.metadata.photo && baseDir) {
+      const photoPath = this.resolvePhotoPath(parsedCV.metadata.photo, baseDir);
+      photoDataUri = this.loadPhoto(photoPath);
+    }
 
     switch (format) {
       case 'rirekisho':
@@ -126,7 +134,7 @@ class HtmlGenerator {
           paperSize,
           chronologicalOrder: 'asc',
           hideMotivation: false,
-          photoDataUri: photoPath ? this.loadPhoto(photoPath) : undefined,
+          photoDataUri,
         });
 
       case 'both':
@@ -134,7 +142,7 @@ class HtmlGenerator {
           logger.debug('Both requested but language is EN, using CV format');
           return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
         }
-        return this.generateBothFormatsHtml(cvInput, paperSize, photoPath);
+        return this.generateBothFormatsHtml(cvInput, paperSize, photoDataUri);
 
       case 'cv':
       default: {
@@ -149,13 +157,13 @@ class HtmlGenerator {
   private generateBothFormatsHtml(
     cvInput: { metadata: ParsedCV['metadata']; sections: ParsedCV['sections'] },
     paperSize: PaperSize,
-    photoPath?: string
+    photoDataUri?: string
   ): string {
     const rirekishoHtml = generateRirekishoHTML(cvInput, {
       paperSize,
       chronologicalOrder: 'asc',
       hideMotivation: false,
-      photoDataUri: photoPath ? this.loadPhoto(photoPath) : undefined,
+      photoDataUri,
     });
     const shokumukeirekishoHtml = generateJaHtml(cvInput, {
       paperSize,
@@ -190,6 +198,14 @@ iframe{border:none;box-shadow:0 2mm 8mm rgba(0,0,0,0.3);background:#fff}
 <div class="content"><iframe id="rirekisho-frame" srcdoc="${escapeHtml(rirekishoHtml)}" style="width:${rirekishoWidthPx}px;height:${rirekishoHeightPx}px"></iframe></div>
 </div>
 </body></html>`;
+  }
+
+  private resolvePhotoPath(photo: string, baseDir: string): string {
+    // If absolute path, use as-is; otherwise resolve relative to baseDir
+    if (photo.startsWith('/') || /^[a-zA-Z]:/.test(photo)) {
+      return photo;
+    }
+    return `${baseDir}/${photo}`;
   }
 
   private loadPhoto(photoPath: string): string | undefined {
@@ -1142,10 +1158,12 @@ export class PreviewProvider implements vscode.Disposable {
   private render(document: vscode.TextDocument): void {
     if (!this.panel) return;
 
+    // Get base directory for resolving relative photo paths
+    const baseDir = path.dirname(document.uri.fsPath);
+
     logger.debug('Rendering preview', {
       format: this.state.format,
       paperSize: this.state.paperSize,
-      hasPhoto: !!this.state.photoPath,
       initialized: this.state.initialized,
     });
 
@@ -1154,7 +1172,7 @@ export class PreviewProvider implements vscode.Disposable {
         this.htmlGenerator.generate(document.getText(), {
           format: this.state.format,
           paperSize: this.state.paperSize,
-          photoPath: this.state.photoPath,
+          baseDir,
         })
       );
 
@@ -1271,11 +1289,6 @@ export class PreviewProvider implements vscode.Disposable {
 
   public getPaperSize(): PaperSize {
     return this.state.paperSize;
-  }
-
-  public setPhotoPath(photoPath: string): void {
-    logger.debug('Photo path set', { photoPath });
-    this.state.photoPath = photoPath;
   }
 
   public isVisible(): boolean {

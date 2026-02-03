@@ -4,7 +4,6 @@
   "command.changeFormat": "Change Document Format",
   "command.changePaperSize": "Change Paper Size",
   "command.generateTemplate": "Generate Template",
-  "command.insertPhoto": "Insert Photo",
   "command.toggleSyncScroll": "Toggle Sync Scroll",
   "command.switchLanguage": "Switch CV Language (English/Japanese)",
   "config.defaultFormat": "Default document format for preview and export",
@@ -13,7 +12,6 @@
   "config.enableSyncScroll": "Enable synchronized scrolling between editor and preview",
   "config.templateLanguage": "Default language for generated templates",
   "config.includeTemplateComments": "Include explanatory comments in generated templates",
-  "config.photoPath": "Path to photo image for Japanese rirekisho format",
   "config.defaultLanguage": "Default CV language (auto-detect, English, or Japanese)",
   "config.cvFilePatterns": "File patterns to enable md2cv features (glob patterns like **/cv*.md)",
   "config.marginMm": "Page margins in mm for CV format (not applicable to rirekisho)"

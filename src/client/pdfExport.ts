@@ -31,7 +31,6 @@ import { getMarginSettings, type CVGenerationOptions } from './cvOptions';
 export interface PdfExportOptions {
   format: OutputFormat;
   paperSize: PaperSize;
-  photoPath?: string;
 }
 
 /**
@@ -48,7 +47,8 @@ export interface PdfExportResult {
  */
 function generateHtmlForFormat(
   parsedCV: ParsedCV,
-  options: CVGenerationOptions
+  options: CVGenerationOptions,
+  documentPath: string
 ): { html: string; formatName: string }[] {
   const cvInput = {
     metadata: parsedCV.metadata,
@@ -58,12 +58,16 @@ function generateHtmlForFormat(
   const language = detectLanguage(cvInput);
   const isJapanese = language === 'ja';
   const results: { html: string; formatName: string }[] = [];
-  const { format, paperSize, marginMm, photoPath } = options;
+  const { format, paperSize, marginMm } = options;
 
-  // Load photo as data URI if provided
+  // Load photo as data URI if specified in metadata
   let photoDataUri: string | undefined;
-  if (photoPath) {
+  if (parsedCV.metadata.photo) {
     try {
+      const baseDir = path.dirname(documentPath);
+      const photoPath = path.isAbsolute(parsedCV.metadata.photo)
+        ? parsedCV.metadata.photo
+        : path.resolve(baseDir, parsedCV.metadata.photo);
       photoDataUri = readPhotoAsDataUri(photoPath);
     } catch {
       // Ignore photo loading errors
@@ -240,9 +244,10 @@ export async function exportToPdf(
   logger.info('Starting PDF export', { format: options.format, paperSize: options.paperSize });
 
   const content = document.getText();
+  const documentPath = document.uri.fsPath;
 
   // Parse markdown
-  const parseResult = withEnvFromFile(document.uri.fsPath, () => parseMarkdown(content));
+  const parseResult = withEnvFromFile(documentPath, () => parseMarkdown(content));
   if (!parseResult.ok) {
     const errorMessages = parseResult.error.map((e) => e.message).join(', ');
     logger.error('PDF export failed: parse error', { errors: errorMessages });
@@ -260,15 +265,13 @@ export async function exportToPdf(
     format: options.format,
     paperSize: options.paperSize,
     marginMm: getMarginSettings(),
-    ...(options.photoPath && { photoPath: options.photoPath }),
   };
 
-  // Generate HTML for each format
-  const htmlResults = generateHtmlForFormat(parsedCV, genOptions);
+  // Generate HTML for each format (photo path is read from metadata)
+  const htmlResults = generateHtmlForFormat(parsedCV, genOptions, documentPath);
   logger.debug('Generated HTML for formats', { formatCount: htmlResults.length });
 
   // Determine default output directory and base name
-  const documentPath = document.uri.fsPath;
   const outputDir = path.dirname(documentPath);
   const baseName = path.basename(documentPath, path.extname(documentPath));
 

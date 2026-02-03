@@ -15,8 +15,6 @@ import {
   type PdfExportOptions,
 } from './pdfExport';
 import { generateTemplateCommand } from './templateGenerator';
-import { insertPhoto } from './photoInsertion';
-import { validateImageFormat } from './photoValidation';
 import { StatusBarManager } from './statusBar';
 import {
   ConfigurationManager,
@@ -323,12 +321,10 @@ function registerCommands(context: vscode.ExtensionContext): void {
       const format = previewProvider?.getFormat() ?? configManager?.getDefaultFormat() ?? 'cv';
       const paperSize =
         previewProvider?.getPaperSize() ?? configManager?.getDefaultPaperSize() ?? 'a4';
-      const photoPath = configManager?.getPhotoPath() ?? '';
 
       const exportOptions: PdfExportOptions = {
         format,
         paperSize,
-        photoPath: photoPath || undefined,
       };
 
       // Show progress indicator
@@ -544,32 +540,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
       await generateTemplateCommand();
     }),
 
-    // Insert Photo command
-    vscode.commands.registerCommand('md2cv.insertPhoto', async () => {
-      const result = await insertPhoto();
-
-      if (!result.success) {
-        if (result.error) {
-          vscode.window.showErrorMessage(result.error);
-        }
-        // If no error, user cancelled - no message needed
-        return;
-      }
-
-      // Update preview provider with new photo path
-      if (result.photoPath && previewProvider) {
-        previewProvider.setPhotoPath(result.photoPath);
-
-        // Refresh preview with photo
-        const editor = vscode.window.activeTextEditor;
-        if (editor && editor.document.languageId === 'markdown') {
-          previewProvider.updatePreview(editor.document);
-        }
-
-        vscode.window.showInformationMessage(vscode.l10n.t('Photo set: {0}', result.photoPath));
-      }
-    }),
-
     // Toggle Sync Scroll command
     // Requirements: 13.3
     vscode.commands.registerCommand('md2cv.toggleSyncScroll', async () => {
@@ -772,23 +742,6 @@ function handleConfigurationChange(event: ConfigChangeEvent): void {
       }
       break;
 
-    case ConfigKeys.PHOTO_PATH:
-      if (previewProvider && typeof newValue === 'string') {
-        if (newValue) {
-          const validation = validateImageFormat(newValue);
-          if (validation.valid) {
-            previewProvider.setPhotoPath(newValue);
-          } else {
-            vscode.window.showWarningMessage(
-              vscode.l10n.t('Invalid photo path: {0}', validation.error ?? 'Unknown error')
-            );
-          }
-        } else {
-          previewProvider.setPhotoPath('');
-        }
-      }
-      break;
-
     case ConfigKeys.PREVIEW_UPDATE_DELAY:
       // Preview update delay is read dynamically, no action needed
       break;
@@ -827,11 +780,7 @@ function handleConfigurationChange(event: ConfigChangeEvent): void {
   }
 
   // Update preview if visible and a relevant setting changed
-  const previewRelevantKeys: string[] = [
-    ConfigKeys.DEFAULT_FORMAT,
-    ConfigKeys.DEFAULT_PAPER_SIZE,
-    ConfigKeys.PHOTO_PATH,
-  ];
+  const previewRelevantKeys: string[] = [ConfigKeys.DEFAULT_FORMAT, ConfigKeys.DEFAULT_PAPER_SIZE];
 
   if (previewRelevantKeys.includes(key)) {
     // Get document from active editor or preview provider
@@ -867,18 +816,6 @@ function loadConfiguration(): void {
   if (previewProvider) {
     previewProvider.setFormat(defaultFormat);
     previewProvider.setPaperSize(defaultPaperSize);
-
-    // Load photo path if set and validate it
-    const photoPath = configManager.getPhotoPath();
-    if (photoPath) {
-      const validation = validateImageFormat(photoPath);
-      if (validation.valid) {
-        previewProvider.setPhotoPath(photoPath);
-      } else {
-        // Log warning but don't show error to user on startup
-        logger.warn(`Invalid photo path in configuration: ${validation.error}`);
-      }
-    }
 
     // Load sync scroll setting
     const syncScrollEnabled = configManager.isSyncScrollEnabled();
