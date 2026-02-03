@@ -1236,6 +1236,8 @@ export class PreviewProvider implements vscode.Disposable {
             to: newSize,
           });
           this.state.paperSize = newSize;
+          // Reset initialized state to force full re-render with updated button states
+          this.state.initialized = false;
           vscode.commands.executeCommand('md2cv.setPaperSize', newSize);
           if (this.currentDocument) {
             this.render(this.currentDocument);
