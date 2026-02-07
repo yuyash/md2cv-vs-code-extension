@@ -125,6 +125,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   previewProvider = new PreviewProvider(context.extensionUri);
   context.subscriptions.push(previewProvider);
 
+  // Set up language getter for preview provider to respect user's language selection
+  previewProvider.setLanguageGetter(detectDocumentLanguage);
+
   // Set up callback for when preview becomes active
   previewProvider.onPreviewActive(() => {
     // Show status bar when preview is focused

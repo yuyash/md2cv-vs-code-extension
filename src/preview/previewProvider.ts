@@ -79,6 +79,8 @@ interface HtmlGeneratorOptions {
   paperSize: PaperSize;
   /** Base directory for resolving relative photo paths */
   baseDir?: string;
+  /** Language override from user selection (bypasses auto-detection) */
+  languageOverride?: 'en' | 'ja';
 }
 
 class HtmlGenerator {
@@ -111,11 +113,12 @@ class HtmlGenerator {
 
   private generateFormatHtml(parsedCV: ParsedCV, options: HtmlGeneratorOptions): string {
     const cvInput = { metadata: parsedCV.metadata, sections: parsedCV.sections };
-    const { format, paperSize, baseDir } = options;
+    const { format, paperSize, baseDir, languageOverride } = options;
 
     logger.debug('Generating HTML for format', { format, paperSize });
 
-    const language = detectLanguage(cvInput);
+    // Use language override if provided, otherwise auto-detect
+    const language = languageOverride ?? detectLanguage(cvInput);
 
     // Resolve photo path from metadata if present
     let photoDataUri: string | undefined;
@@ -895,6 +898,11 @@ window.pagedJsError = null;
       case 'updateSections':
         initSectionElements();
         break;
+
+      case 'fitWidth':
+        // Trigger fit width after paper size change
+        fitWidth();
+        break;
     }
   });
 
@@ -1009,7 +1017,9 @@ window.pagedJsError = null;
       window.Paged = PagedLib; // Normalize
       renderWithPagedJs().then(() => {
         setTimeout(() => {
-          fitWidth();
+          // Reset zoom to 100% when paper size changes
+          zoom = 1;
+          updateZoom();
           updateCurrentPage();
         }, 100);
       });
@@ -1055,6 +1065,7 @@ export class PreviewProvider implements vscode.Disposable {
   private currentDocument: vscode.TextDocument | undefined;
   private onPreviewActiveCallback: (() => void) | undefined;
   private htmlGenerator = new HtmlGenerator();
+  private languageGetter: ((document: vscode.TextDocument) => 'en' | 'ja' | null) | undefined;
 
   constructor(private readonly extensionUri: vscode.Uri) {
     logger.info('PreviewProvider initialized (Paged.js mode)');
@@ -1067,6 +1078,14 @@ export class PreviewProvider implements vscode.Disposable {
     this.syncScrollManager.onScrollToEditor((line: number) => {
       this.scrollEditorToLine(line);
     });
+  }
+
+  /**
+   * Set a function to get the language override for a document.
+   * This allows the extension to provide language selection from the status bar.
+   */
+  public setLanguageGetter(getter: (document: vscode.TextDocument) => 'en' | 'ja' | null): void {
+    this.languageGetter = getter;
   }
 
   private scrollEditorToLine(line: number): void {
@@ -1161,10 +1180,14 @@ export class PreviewProvider implements vscode.Disposable {
     // Get base directory for resolving relative photo paths
     const baseDir = path.dirname(document.uri.fsPath);
 
+    // Get language override from the language getter if available
+    const languageOverride = this.languageGetter?.(document) ?? undefined;
+
     logger.debug('Rendering preview', {
       format: this.state.format,
       paperSize: this.state.paperSize,
       initialized: this.state.initialized,
+      languageOverride,
     });
 
     try {
@@ -1173,6 +1196,7 @@ export class PreviewProvider implements vscode.Disposable {
           format: this.state.format,
           paperSize: this.state.paperSize,
           baseDir,
+          languageOverride,
         })
       );
 
