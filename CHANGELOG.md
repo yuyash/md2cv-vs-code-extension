@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.5.0...v1.5.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* respect language selection in preview and reset zoom on paper size change ([#35](https://github.com/yuyash/md2cv-vs-code-extension/issues/35)) ([7777356](https://github.com/yuyash/md2cv-vs-code-extension/commit/77773565403d652cfb8f834e76bc67403b564742))
+
 ## [1.5.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.4.7...v1.5.0) (2026-02-03)
 
 
