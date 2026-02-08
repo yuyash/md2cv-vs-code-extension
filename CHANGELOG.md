@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.5.1...v1.6.0) (2026-02-08)
+
+
+### Features
+
+* add home_address_ja field support ([#37](https://github.com/yuyash/md2cv-vs-code-extension/issues/37)) ([6e14a30](https://github.com/yuyash/md2cv-vs-code-extension/commit/6e14a301c3ad1417f8c4642aaa91a0e609fc32e2))
+
 ## [1.5.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.5.0...v1.5.1) (2026-02-07)
 
 
