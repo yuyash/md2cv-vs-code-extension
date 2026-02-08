@@ -117,6 +117,14 @@ const FRONTMATTER_FIELD_HOVER: Record<string, FieldHoverInfo> = {
     exampleJa: '東京都渋谷区〇〇1-2-3',
     envVars: ['MD2CV_HOME_ADDRESS'],
   },
+  home_address_ja: {
+    name: 'home_address_ja',
+    description: 'Primary home address in Japanese (preferred for rirekisho)',
+    descriptionJa: '住所（日本語、履歴書で優先使用）',
+    example: '東京都渋谷区〇〇1-2-3',
+    exampleJa: '東京都渋谷区〇〇1-2-3',
+    envVars: ['MD2CV_HOME_ADDRESS_JA'],
+  },
   home_address_furigana: {
     name: 'home_address_furigana',
     description: 'Home address reading in hiragana',
