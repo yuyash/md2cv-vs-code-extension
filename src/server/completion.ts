@@ -584,6 +584,7 @@ function getFieldDescription(fieldName: string): string {
     phone_number2: 'Secondary phone number',
     post_code: 'Primary postal code',
     home_address: 'Primary home address',
+    home_address_ja: 'Primary home address in Japanese (履歴書で優先)',
     home_address_furigana: 'Home address in furigana',
     post_code2: 'Secondary postal code',
     home_address2: 'Secondary home address',

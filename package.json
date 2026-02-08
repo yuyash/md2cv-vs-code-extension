@@ -352,7 +352,7 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
-    "md2cv": "^2.1.0",
+    "md2cv": "^2.2.0",
     "puppeteer": "^24.34.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
