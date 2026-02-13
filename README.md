@@ -12,6 +12,7 @@ Convert Markdown into a formatted CV/Resume or Japanese rirekisho (履歴書) / 
 - **Multiple formats**: Western-style CV, Japanese rirekisho (履歴書), and shokumu-keirekisho (職務経歴書)
 - **Template generation**: Starter templates for each format
 - **IntelliSense**: Auto-completion for sections and fields
+- **Improved experience display**: Roles are now grouped by company for better readability
 
 ## Quick Start
 
