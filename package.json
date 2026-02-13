@@ -2,7 +2,7 @@
   "name": "md2cv-vscode",
   "displayName": "md2cv",
   "description": "Create resumes and CVs from Markdown with real-time preview, PDF export, and IntelliSense",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "publisher": "yuyash",
   "license": "GPL-3.0",
   "icon": "images/icon.png",
