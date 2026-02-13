@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.6.0...v1.7.0) (2026-02-13)
+
+
+### Features
+
+* improve experience section display with grouped roles ([#41](https://github.com/yuyash/md2cv-vs-code-extension/issues/41)) ([5b610fc](https://github.com/yuyash/md2cv-vs-code-extension/commit/5b610fcb0b2c385e3007efacbef74a9659cf17ea))
+
 ## [1.6.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.5.1...v1.6.0) (2026-02-08)
 
 
