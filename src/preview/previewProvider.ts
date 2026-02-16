@@ -18,6 +18,7 @@ import {
   generateEnHtml,
   generateJaHtml,
   generateRirekishoHTML,
+  generateCoverLetterHtml,
   detectLanguage,
   readPhotoAsDataUri,
   escapeHtml,
@@ -131,11 +132,17 @@ class HtmlGenerator {
       photoDataUri = this.loadPhoto(photoPath);
     }
 
+    // Parse line_height from metadata
+    const lh = parsedCV.metadata.line_height
+      ? parseFloat(parsedCV.metadata.line_height)
+      : undefined;
+    const lineHeight = lh && !isNaN(lh) ? lh : undefined;
+
     switch (format) {
       case 'rirekisho':
         if (language === 'en') {
           logger.debug('Rirekisho requested but language is EN, using CV format');
-          return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
+          return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings(), lineHeight });
         }
         return generateRirekishoHTML(cvInput, {
           paperSize,
@@ -147,16 +154,23 @@ class HtmlGenerator {
       case 'both':
         if (language === 'en') {
           logger.debug('Both requested but language is EN, using CV format');
-          return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
+          return generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings(), lineHeight });
         }
         return this.generateBothFormatsHtml(cvInput, paperSize, photoDataUri);
+
+      case 'cover_letter':
+        return generateCoverLetterHtml(cvInput, {
+          paperSize,
+          marginMm: getMarginSettings(),
+          lineHeight,
+        });
 
       case 'cv':
       default: {
         logger.debug('Detected language for CV', { language });
         return language === 'ja'
-          ? generateJaHtml(cvInput, { paperSize, marginMm: getMarginSettings() })
-          : generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings() });
+          ? generateJaHtml(cvInput, { paperSize, marginMm: getMarginSettings(), lineHeight })
+          : generateEnHtml(cvInput, { paperSize, marginMm: getMarginSettings(), lineHeight });
       }
     }
   }
@@ -1073,6 +1087,7 @@ export class PreviewProvider implements vscode.Disposable {
   private onPreviewActiveCallback: (() => void) | undefined;
   private htmlGenerator = new HtmlGenerator();
   private languageGetter: ((document: vscode.TextDocument) => 'en' | 'ja' | null) | undefined;
+  private onFormatChangedCallback: ((format: OutputFormat) => void) | undefined;
 
   constructor(private readonly extensionUri: vscode.Uri) {
     logger.info('PreviewProvider initialized (Paged.js mode)');
@@ -1095,6 +1110,10 @@ export class PreviewProvider implements vscode.Disposable {
     this.languageGetter = getter;
   }
 
+  public onFormatChanged(callback: (format: OutputFormat) => void): void {
+    this.onFormatChangedCallback = callback;
+  }
+
   private scrollEditorToLine(line: number): void {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== 'markdown') return;
@@ -1104,6 +1123,15 @@ export class PreviewProvider implements vscode.Disposable {
   }
 
   public show(document: vscode.TextDocument): void {
+    // Auto-detect cover letter format from document content
+    if (this.state.format !== 'cover_letter') {
+      const text = document.getText();
+      if (/^#\s+Cover\s+Letter\s*$/im.test(text)) {
+        this.state.format = 'cover_letter';
+        this.onFormatChangedCallback?.('cover_letter');
+      }
+    }
+
     logger.info('Opening preview', {
       uri: document.uri.toString(),
       format: this.state.format,

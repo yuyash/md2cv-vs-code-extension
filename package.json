@@ -56,7 +56,7 @@
         "command": "md2cv.changeFormat",
         "title": "%command.changeFormat%",
         "category": "md2cv",
-        "enablement": "editorLangId == markdown && md2cv.isJapaneseCV"
+        "enablement": "editorLangId == markdown"
       },
       {
         "command": "md2cv.changePaperSize",
@@ -92,13 +92,15 @@
             "cv",
             "shokumukeirekisho",
             "rirekisho",
-            "both"
+            "both",
+            "cover_letter"
           ],
           "enumDescriptions": [
             "Western-style CV",
             "Japanese Shokumukeirekisho (職務経歴書)",
             "Japanese Rirekisho (履歴書)",
-            "Both Japanese formats"
+            "Both Japanese formats",
+            "Cover Letter"
           ],
           "description": "%config.defaultFormat%"
         },
@@ -161,7 +163,9 @@
             "**/cv*.md",
             "**/resume*.md",
             "**/rirekisho*.md",
-            "**/shokumukeirekisho*.md"
+            "**/shokumukeirekisho*.md",
+            "**/cover_letter*.md",
+            "**/coverletter*.md"
           ],
           "items": {
             "type": "string"
@@ -228,7 +232,7 @@
         "command": "md2cv.changeFormat",
         "key": "ctrl+alt+f",
         "mac": "cmd+alt+f",
-        "when": "editorLangId == markdown && md2cv.isJapaneseCV"
+        "when": "editorLangId == markdown"
       },
       {
         "command": "md2cv.changePaperSize",
@@ -278,7 +282,7 @@
         },
         {
           "command": "md2cv.changeFormat",
-          "when": "(editorLangId == markdown || md2cv.previewActive) && md2cv.isJapaneseCV"
+          "when": "editorLangId == markdown || md2cv.previewActive"
         },
         {
           "command": "md2cv.changePaperSize",
@@ -352,7 +356,7 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
-    "md2cv": "^2.4.0",
+    "md2cv": "^2.5.0",
     "puppeteer": "^24.34.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",

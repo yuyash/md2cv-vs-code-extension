@@ -66,7 +66,14 @@ export const DEFAULT_CONFIG: Readonly<Md2cvConfig> = {
   templateLanguage: 'en',
   includeTemplateComments: true,
   defaultLanguage: 'auto',
-  cvFilePatterns: ['**/cv*.md', '**/resume*.md', '**/rirekisho*.md', '**/shokumukeirekisho*.md'],
+  cvFilePatterns: [
+    '**/cv*.md',
+    '**/resume*.md',
+    '**/rirekisho*.md',
+    '**/shokumukeirekisho*.md',
+    '**/cover_letter*.md',
+    '**/coverletter*.md',
+  ],
 };
 
 /**

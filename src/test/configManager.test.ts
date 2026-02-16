@@ -86,6 +86,8 @@ describe('configManager', () => {
         '**/resume*.md',
         '**/rirekisho*.md',
         '**/shokumukeirekisho*.md',
+        '**/cover_letter*.md',
+        '**/coverletter*.md',
       ]);
     });
   });

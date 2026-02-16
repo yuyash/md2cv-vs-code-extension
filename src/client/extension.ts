@@ -128,6 +128,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Set up language getter for preview provider to respect user's language selection
   previewProvider.setLanguageGetter(detectDocumentLanguage);
 
+  // Auto-update status bar and language server when format is auto-detected
+  previewProvider.onFormatChanged((format) => {
+    statusBarManager?.updateFormat(format);
+    if (client) {
+      client.sendNotification('workspace/didChangeConfiguration', {
+        settings: { md2cv: { defaultFormat: format } },
+      });
+    }
+  });
+
   // Set up callback for when preview becomes active
   previewProvider.onPreviewActive(() => {
     // Show status bar when preview is focused
@@ -373,39 +383,43 @@ function registerCommands(context: vscode.ExtensionContext): void {
       // Detect document language
       const language = detectDocumentLanguage(document);
 
-      // For English CVs, show message that format switching is not available
-      if (language === 'en') {
-        vscode.window.showInformationMessage(
-          vscode.l10n.t(
-            'Format switching is only available for Japanese CVs. English CVs use the standard CV format.'
-          )
-        );
-        return;
-      }
-
-      // For Japanese CVs, show format selection
+      // Build format options based on language
       const formats: { label: string; description: string; value: OutputFormat }[] = [
         {
-          label: vscode.l10n.t('CV (職務経歴書)'),
-          description: vscode.l10n.t('Japanese work history format'),
+          label: vscode.l10n.t('CV'),
+          description:
+            language === 'ja'
+              ? vscode.l10n.t('Japanese work history format (職務経歴書)')
+              : vscode.l10n.t('Western-style CV'),
           value: 'cv',
         },
         {
-          label: vscode.l10n.t('Rirekisho (履歴書)'),
-          description: vscode.l10n.t('Japanese resume format'),
-          value: 'rirekisho',
-        },
-        {
-          label: vscode.l10n.t('Both (両方)'),
-          description: vscode.l10n.t('Display both formats'),
-          value: 'both',
+          label: vscode.l10n.t('Cover Letter'),
+          description: vscode.l10n.t('Professional cover letter'),
+          value: 'cover_letter',
         },
       ];
+
+      // Add Japanese-only formats
+      if (language === 'ja') {
+        formats.push(
+          {
+            label: vscode.l10n.t('Rirekisho (履歴書)'),
+            description: vscode.l10n.t('Japanese resume format'),
+            value: 'rirekisho',
+          },
+          {
+            label: vscode.l10n.t('Both (両方)'),
+            description: vscode.l10n.t('Display both Japanese formats'),
+            value: 'both',
+          }
+        );
+      }
 
       const selected = await vscode.window.showQuickPick(
         formats.map((f) => ({ label: f.label, description: f.description, value: f.value })),
         {
-          placeHolder: vscode.l10n.t('Select document format for Japanese CV'),
+          placeHolder: vscode.l10n.t('Select document format'),
           title: vscode.l10n.t('Document Format'),
         }
       );
@@ -416,6 +430,12 @@ function registerCommands(context: vscode.ExtensionContext): void {
           previewProvider.setFormat(format.value);
           // Update status bar
           statusBarManager?.updateFormat(format.value);
+          // Notify language server of format change for validation
+          if (client) {
+            client.sendNotification('workspace/didChangeConfiguration', {
+              settings: { md2cv: { defaultFormat: format.value } },
+            });
+          }
           // Refresh preview with new format
           if (document) {
             previewProvider.updatePreview(document);

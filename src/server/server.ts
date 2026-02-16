@@ -64,6 +64,8 @@ let cvFilePatterns: string[] = [
   '**/resume*.md',
   '**/rirekisho*.md',
   '**/shokumukeirekisho*.md',
+  '**/cover_letter*.md',
+  '**/coverletter*.md',
 ];
 
 /**
@@ -284,8 +286,18 @@ async function validateDocument(document: TextDocument): Promise<void> {
       validationOptions.language ?? 'auto'
     );
 
+    // Auto-detect cover letter format from section headings
+    let format = validationOptions.format;
+    if (format === 'cv' || format === undefined) {
+      const text = document.getText();
+      if (/^#\s+Cover\s+Letter\s*$/im.test(text)) {
+        format = 'cover_letter';
+      }
+    }
+
     const validationResult = runValidation(result.document, {
       ...validationOptions,
+      format,
       language: documentLanguage,
     });
     // Store validation diagnostics for code actions
