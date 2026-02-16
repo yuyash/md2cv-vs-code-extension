@@ -19,6 +19,7 @@ const FORMAT_LABELS: Record<OutputFormat, string> = {
   cv: 'CV',
   rirekisho: '履歴書',
   both: '両方',
+  cover_letter: 'Cover Letter',
 };
 
 /**
@@ -158,10 +159,8 @@ export class StatusBarManager implements vscode.Disposable {
   public show(): void {
     // Always show language item for markdown files
     this._languageItem.show();
-    // Only show format item for Japanese CVs
-    if (this._isJapaneseCV) {
-      this._formatItem.show();
-    }
+    // Always show format item (cover letter is available for all languages)
+    this._formatItem.show();
   }
 
   /**

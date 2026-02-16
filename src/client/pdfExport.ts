@@ -12,6 +12,7 @@ import {
   generateEnHtml,
   generateJaHtml,
   generateRirekishoHTML,
+  generateCoverLetterHtml,
   detectLanguage,
   readPhotoAsDataUri,
   PAGE_SIZES,
@@ -60,6 +61,10 @@ function generateHtmlForFormat(
   const results: { html: string; formatName: string }[] = [];
   const { format, paperSize, marginMm } = options;
 
+  // Parse line_height from metadata
+  const lh = parsedCV.metadata.line_height ? parseFloat(parsedCV.metadata.line_height) : undefined;
+  const lineHeight = lh && !isNaN(lh) ? lh : undefined;
+
   // Load photo as data URI if specified in metadata
   let photoDataUri: string | undefined;
   if (parsedCV.metadata.photo) {
@@ -90,7 +95,7 @@ function generateHtmlForFormat(
     case 'both':
       // Generate both Japanese formats (CV-JA and Rirekisho)
       results.push({
-        html: generateJaHtml(cvInput, { paperSize, marginMm }),
+        html: generateJaHtml(cvInput, { paperSize, marginMm, lineHeight }),
         formatName: 'cv',
       });
       results.push({
@@ -104,16 +109,23 @@ function generateHtmlForFormat(
       });
       break;
 
+    case 'cover_letter':
+      results.push({
+        html: generateCoverLetterHtml(cvInput, { paperSize, marginMm, lineHeight }),
+        formatName: 'cover_letter',
+      });
+      break;
+
     case 'cv':
     default:
       if (isJapanese) {
         results.push({
-          html: generateJaHtml(cvInput, { paperSize, marginMm }),
+          html: generateJaHtml(cvInput, { paperSize, marginMm, lineHeight }),
           formatName: 'cv',
         });
       } else {
         results.push({
-          html: generateEnHtml(cvInput, { paperSize, marginMm }),
+          html: generateEnHtml(cvInput, { paperSize, marginMm, lineHeight }),
           formatName: 'cv',
         });
       }

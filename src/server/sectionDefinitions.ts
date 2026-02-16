@@ -104,6 +104,10 @@ export function getSectionUsageDescription(usage: SectionUsage): string {
       return 'Rirekisho only';
     case 'both':
       return 'CV and Rirekisho';
+    case 'cover_letter':
+      return 'Cover Letter only';
+    case 'all':
+      return 'All formats';
   }
 }
 
