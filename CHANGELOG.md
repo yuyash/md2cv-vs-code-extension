@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.7.1...v1.8.0) (2026-02-16)
+
+
+### Features
+
+* add cover letter format support ([#47](https://github.com/yuyash/md2cv-vs-code-extension/issues/47)) ([67628bb](https://github.com/yuyash/md2cv-vs-code-extension/commit/67628bbdcf651386399117440f768edc9d188faa))
+
 ## [1.7.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.7.0...v1.7.1) (2026-02-16)
 
 
