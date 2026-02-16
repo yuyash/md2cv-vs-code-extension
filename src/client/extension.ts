@@ -702,6 +702,20 @@ function registerDocumentListeners(context: vscode.ExtensionContext): void {
     })
   );
 
+  // Listen for cursor position changes (sync scroll: cursor → preview)
+  context.subscriptions.push(
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      if (
+        event.textEditor.document.languageId === 'markdown' &&
+        previewProvider?.isVisible() &&
+        previewProvider.isSyncScrollEnabled()
+      ) {
+        const cursorLine = event.selections[0].active.line;
+        previewProvider.handleCursorChange(cursorLine);
+      }
+    })
+  );
+
   // Listen for configuration changes using ConfigurationManager
   // This provides more granular control over which settings changed
   if (configManager) {

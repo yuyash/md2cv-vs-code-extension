@@ -284,8 +284,21 @@ export class SyncScrollManager implements vscode.Disposable {
       return;
     }
 
-    // Get the first visible line
     const firstVisibleLine = visibleRanges[0].start.line;
+
+    // If line 0 is visible, scroll preview to the very top
+    if (firstVisibleLine === 0) {
+      if (this._scrollThrottleTimer) {
+        clearTimeout(this._scrollThrottleTimer);
+      }
+      this._lastScrollLine = 0;
+      this._onScrollToPreview?.({ type: 'scrollToPosition', position: 0 });
+      return;
+    }
+
+    // Use a line a few rows below the top of the visible range
+    // to avoid being pulled to the previous section when its tail is barely visible
+    const targetLine = firstVisibleLine + 5;
 
     // Throttle scroll events to avoid excessive updates
     if (this._scrollThrottleTimer) {
@@ -294,18 +307,45 @@ export class SyncScrollManager implements vscode.Disposable {
 
     this._scrollThrottleTimer = setTimeout(() => {
       // Skip if updating or if the line hasn't changed significantly
-      if (this._isUpdating || Math.abs(firstVisibleLine - this._lastScrollLine) < 2) {
+      if (this._isUpdating || Math.abs(targetLine - this._lastScrollLine) < 2) {
         return;
       }
 
-      this._lastScrollLine = firstVisibleLine;
+      this._lastScrollLine = targetLine;
 
       // Send line-based scroll message directly
       this._onScrollToPreview?.({
         type: 'scrollToLine',
-        line: firstVisibleLine,
+        line: targetLine,
       });
     }, 50); // 50ms throttle
+  }
+
+  /**
+   * Handle editor cursor (selection) change
+   * Scrolls preview to the element closest above the cursor line
+   */
+  public handleCursorChange(cursorLine: number): void {
+    if (!this._enabled || !this._onScrollToPreview || this._isUpdating) {
+      return;
+    }
+
+    if (this._scrollThrottleTimer) {
+      clearTimeout(this._scrollThrottleTimer);
+    }
+
+    this._scrollThrottleTimer = setTimeout(() => {
+      if (this._isUpdating) {
+        return;
+      }
+
+      this._lastScrollLine = cursorLine;
+
+      this._onScrollToPreview?.({
+        type: 'scrollToLine',
+        line: cursorLine,
+      });
+    }, 50);
   }
 
   /**
