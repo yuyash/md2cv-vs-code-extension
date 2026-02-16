@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.7.0...v1.7.1) (2026-02-16)
+
+
+### Bug Fixes
+
+* improve sync scroll ([#45](https://github.com/yuyash/md2cv-vs-code-extension/issues/45)) ([f5361e3](https://github.com/yuyash/md2cv-vs-code-extension/commit/f5361e325a7bc22e7325fab51af1c74a73738440))
+
 ## [1.7.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.6.0...v1.7.0) (2026-02-13)
 
 
