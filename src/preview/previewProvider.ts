@@ -112,7 +112,11 @@ class HtmlGenerator {
   }
 
   private generateFormatHtml(parsedCV: ParsedCV, options: HtmlGeneratorOptions): string {
-    const cvInput = { metadata: parsedCV.metadata, sections: parsedCV.sections };
+    const cvInput = {
+      metadata: parsedCV.metadata,
+      sections: parsedCV.sections,
+      frontmatterSourceLines: parsedCV.frontmatterSourceLines,
+    };
     const { format, paperSize, baseDir, languageOverride } = options;
 
     logger.debug('Generating HTML for format', { format, paperSize });
@@ -158,7 +162,11 @@ class HtmlGenerator {
   }
 
   private generateBothFormatsHtml(
-    cvInput: { metadata: ParsedCV['metadata']; sections: ParsedCV['sections'] },
+    cvInput: {
+      metadata: ParsedCV['metadata'];
+      sections: ParsedCV['sections'];
+      frontmatterSourceLines?: ParsedCV['frontmatterSourceLines'];
+    },
     paperSize: PaperSize,
     photoDataUri?: string
   ): string {
@@ -797,8 +805,7 @@ window.pagedJsError = null;
       updateCurrentPage();
     }, 50);
 
-    // Handle sync scroll (preview → editor)
-    handlePreviewScroll();
+    // Sync scroll is editor → preview only (preview → editor is intentionally disabled)
   }, { passive: true });
 
   // Setup UI event listeners
@@ -1347,6 +1354,11 @@ export class PreviewProvider implements vscode.Disposable {
   ): void {
     if (!this.panel || !this.isVisible()) return;
     this.syncScrollManager.handleEditorScroll(visibleRanges, document);
+  }
+
+  public handleCursorChange(cursorLine: number): void {
+    if (!this.panel || !this.isVisible()) return;
+    this.syncScrollManager.handleCursorChange(cursorLine);
   }
 
   public dispose(): void {
