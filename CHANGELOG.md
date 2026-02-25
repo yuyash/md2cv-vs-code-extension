@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.8.1...v1.8.2) (2026-02-25)
+
+
+### Bug Fixes
+
+* bump md2cv to 2.5.2 ([#51](https://github.com/yuyash/md2cv-vs-code-extension/issues/51)) ([bca3f35](https://github.com/yuyash/md2cv-vs-code-extension/commit/bca3f357ea4054b8091f05ee6d6efa1613ae4b19))
+
 ## [1.8.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.8.0...v1.8.1) (2026-02-25)
 
 
