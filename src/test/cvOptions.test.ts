@@ -24,12 +24,12 @@ describe('cvOptions', () => {
   });
 
   describe('DEFAULT_MARGINS', () => {
-    it('should have 30mm margins on all sides', () => {
+    it('should have 25mm margins on all sides', () => {
       expect(DEFAULT_MARGINS).toEqual({
-        top: 30,
-        right: 30,
-        bottom: 30,
-        left: 30,
+        top: 25,
+        right: 25,
+        bottom: 25,
+        left: 25,
       });
     });
   });
@@ -111,9 +111,9 @@ describe('cvOptions', () => {
       const result = getMarginSettings();
       expect(result).toEqual({
         top: 10,
-        right: 30, // default
+        right: 25, // default
         bottom: 20,
-        left: 30, // default
+        left: 25, // default
       });
     });
 
@@ -126,9 +126,9 @@ describe('cvOptions', () => {
 
       const result = getMarginSettings();
       expect(result).toEqual({
-        top: 30,
-        right: 30,
-        bottom: 30,
+        top: 25,
+        right: 25,
+        bottom: 25,
         left: 50,
       });
     });

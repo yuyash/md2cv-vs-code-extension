@@ -11,10 +11,10 @@ import type { PaperSize, OutputFormat, PageMargins } from 'md2cv';
  * Default page margins in mm (matches md2cv library default)
  */
 export const DEFAULT_MARGINS: PageMargins = {
-  top: 30,
-  right: 30,
-  bottom: 30,
-  left: 30,
+  top: 25,
+  right: 25,
+  bottom: 25,
+  left: 25,
 };
 
 /**

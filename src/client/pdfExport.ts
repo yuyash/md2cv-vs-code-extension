@@ -32,6 +32,8 @@ import { getMarginSettings, type CVGenerationOptions } from './cvOptions';
 export interface PdfExportOptions {
   format: OutputFormat;
   paperSize: PaperSize;
+  /** Language override from user selection (bypasses auto-detection) */
+  languageOverride?: 'en' | 'ja';
 }
 
 /**
@@ -49,14 +51,15 @@ export interface PdfExportResult {
 function generateHtmlForFormat(
   parsedCV: ParsedCV,
   options: CVGenerationOptions,
-  documentPath: string
+  documentPath: string,
+  languageOverride?: 'en' | 'ja'
 ): { html: string; formatName: string }[] {
   const cvInput = {
     metadata: parsedCV.metadata,
     sections: parsedCV.sections,
   };
 
-  const language = detectLanguage(cvInput);
+  const language = languageOverride ?? detectLanguage(cvInput);
   const isJapanese = language === 'ja';
   const results: { html: string; formatName: string }[] = [];
   const { format, paperSize, marginMm } = options;
@@ -280,7 +283,12 @@ export async function exportToPdf(
   };
 
   // Generate HTML for each format (photo path is read from metadata)
-  const htmlResults = generateHtmlForFormat(parsedCV, genOptions, documentPath);
+  const htmlResults = generateHtmlForFormat(
+    parsedCV,
+    genOptions,
+    documentPath,
+    options.languageOverride
+  );
   logger.debug('Generated HTML for formats', { formatCount: htmlResults.length });
 
   // Determine default output directory and base name
