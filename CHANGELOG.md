@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.8.0...v1.8.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* update md2cv to 2.5.1 and improve PDF export ([#49](https://github.com/yuyash/md2cv-vs-code-extension/issues/49)) ([c30070d](https://github.com/yuyash/md2cv-vs-code-extension/commit/c30070dccc0b2a679d9276c382122df40452b8a3))
+
 ## [1.8.0](https://github.com/yuyash/md2cv-vs-code-extension/compare/v1.7.1...v1.8.0) (2026-02-16)
 
 
