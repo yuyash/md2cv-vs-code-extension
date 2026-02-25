@@ -335,28 +335,23 @@ function registerCommands(context: vscode.ExtensionContext): void {
       const paperSize =
         previewProvider?.getPaperSize() ?? configManager?.getDefaultPaperSize() ?? 'a4';
 
+      // Get language override for the document
+      const languageOverride = detectDocumentLanguage(document) ?? undefined;
+
       const exportOptions: PdfExportOptions = {
         format,
         paperSize,
+        languageOverride,
       };
 
-      // Show progress indicator
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: vscode.l10n.t('Exporting PDF...'),
-          cancellable: false,
-        },
-        async () => {
-          const result = await exportToPdf(document!, exportOptions);
+      // Export PDF (includes save dialog)
+      const result = await exportToPdf(document!, exportOptions);
 
-          if (result.success) {
-            await showExportCompletionNotification(result.outputPaths);
-          } else {
-            showExportErrorNotification(result.error ?? vscode.l10n.t('Unknown error'));
-          }
-        }
-      );
+      if (result.success) {
+        await showExportCompletionNotification(result.outputPaths);
+      } else if (result.error) {
+        showExportErrorNotification(result.error);
+      }
     }),
 
     // Change Format command

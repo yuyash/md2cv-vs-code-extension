@@ -409,6 +409,13 @@ export function validateSections(
         continue;
       }
 
+      // For CV-only sections (summary, languages) in rirekisho format,
+      // skip diagnostic - Japanese markdown supports both formats
+      const isCvOnlySection = section.id === 'summary' || section.id === 'languages';
+      if (isCvOnlySection && format === 'rirekisho') {
+        continue;
+      }
+
       diagnostics.push(
         createDiagnostic(
           `Section "${section.title}" (${section.id}) is not valid for ${format} format.`,
